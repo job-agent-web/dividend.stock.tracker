@@ -66,6 +66,7 @@ async function postJson(url, payload = {}) {
     method: "POST",
     headers: { "content-type": "application/json" },
     cache: "no-store",
+    credentials: "same-origin",
     body: JSON.stringify(payload)
   });
   let data = {};
@@ -77,36 +78,70 @@ async function postJson(url, payload = {}) {
   return { response, data };
 }
 
+function adminApiFailureMessage(response, data, fallback) {
+  if (response?.status === 404) {
+    return "Secure admin API is not deployed yet. Upload the admin API files and redeploy Vercel.";
+  }
+  if (response?.status === 500) {
+    return data?.message || "Secure admin login is not configured on this deployment.";
+  }
+  if (response?.status === 401) {
+    return data?.message || "The admin passkey is incorrect.";
+  }
+  return data?.message || fallback;
+}
+
 async function checkAdminSession() {
   try {
     const response = await fetch("/api/admin-session", {
       method: "GET",
-      cache: "no-store"
+      cache: "no-store",
+      credentials: "same-origin"
     });
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
     if (response.ok && data?.ok) {
+      if (adminGateMessage) adminGateMessage.textContent = "";
       showAdminDashboard();
       return true;
     }
-  } catch {}
+    if (adminGateMessage && response.status !== 200) {
+      adminGateMessage.textContent = adminApiFailureMessage(
+        response,
+        data,
+        "Secure admin session check failed."
+      );
+    } else if (adminGateMessage) {
+      adminGateMessage.textContent = "";
+    }
+  } catch {
+    if (adminGateMessage) {
+      adminGateMessage.textContent = "Could not reach the secure admin session service.";
+    }
+  }
   lockAdminDashboard();
   return false;
 }
 
 async function loginAdminWithPin() {
   const pin = adminPin?.value || "";
-  if (adminGateMessage) adminGateMessage.textContent = "Checking admin access...";
+  if (adminGateMessage) adminGateMessage.textContent = "Checking secure admin access...";
   try {
     const { response, data } = await postJson("/api/admin-login", { pin });
     if (!response.ok || !data?.ok) {
-      if (adminGateMessage) adminGateMessage.textContent = data?.message || "Incorrect admin PIN.";
+      if (adminGateMessage) {
+        adminGateMessage.textContent = adminApiFailureMessage(
+          response,
+          data,
+          "The admin passkey could not be checked."
+        );
+      }
       adminPin?.focus();
       return;
     }
     if (adminGateMessage) adminGateMessage.textContent = "";
     showAdminDashboard();
   } catch {
-    if (adminGateMessage) adminGateMessage.textContent = "Could not reach the secure admin login.";
+    if (adminGateMessage) adminGateMessage.textContent = "Could not reach the secure admin login service.";
     adminPin?.focus();
   }
 }
@@ -115,7 +150,8 @@ async function logoutAdmin() {
   try {
     await fetch("/api/admin-logout", {
       method: "POST",
-      cache: "no-store"
+      cache: "no-store",
+      credentials: "same-origin"
     });
   } catch {}
   lockAdminDashboard();

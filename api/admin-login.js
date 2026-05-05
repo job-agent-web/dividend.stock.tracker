@@ -85,12 +85,12 @@ module.exports = async function handler(request, response) {
   }
 
   const expectedPin = String(process.env.ADMIN_DASHBOARD_SECRET || "").trim();
-  const sessionSecret = String(process.env.ADMIN_SESSION_SECRET || "").trim();
+  const sessionSecret = String(process.env.ADMIN_SESSION_SECRET || expectedPin).trim();
 
-  if (!expectedPin || !sessionSecret) {
+  if (!expectedPin) {
     json(response, 500, {
       ok: false,
-      message: "Admin login is not configured on this deployment."
+      message: "Admin passkey is not configured on this deployment."
     });
     return;
   }

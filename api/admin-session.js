@@ -52,7 +52,9 @@ module.exports = function handler(request, response) {
     return;
   }
 
-  const sessionSecret = String(process.env.ADMIN_SESSION_SECRET || "").trim();
+  const sessionSecret = String(
+    process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_DASHBOARD_SECRET || ""
+  ).trim();
   const cookies = parseCookies(request.headers.cookie || "");
   const session = verifySessionToken(cookies[sessionCookieName], sessionSecret);
 
