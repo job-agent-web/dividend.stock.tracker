@@ -45,6 +45,7 @@ const rememberedSigninKey = "dividendRememberedSignin";
 const freeTrialDays = 7;
 const adminContactEmail = "dividendstocktracker@gmail.com";
 const otpMinutesValid = 10;
+const usesHostedSharedAccounts = window.location.protocol !== "file:";
 let paymentModalUser = null;
 let pendingSignupEmail = "";
 let pendingSigninUser = null;
@@ -170,6 +171,17 @@ function registeredUsers() {
 
 function writeUsers(users) {
   localStorage.setItem(usersStorageKey, JSON.stringify(users));
+}
+
+async function postHostedJson(url, payload = {}) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    cache: "no-store",
+    body: JSON.stringify(payload)
+  });
+  const data = await response.json().catch(() => ({}));
+  return { response, data };
 }
 
 function loadRememberedSigninDetails() {
@@ -520,6 +532,7 @@ signupForm?.addEventListener("submit", async (event) => {
   const countries = selectedSignupCountries();
   const email = signupEmail.value.trim();
   const username = signupUsername.value.trim();
+  signupMessage.classList.remove("error");
   const users = registeredUsers();
   if (!countries.length) {
     signupMessage.textContent = "Choose at least one country for your stock profile.";
@@ -556,6 +569,25 @@ signupForm?.addEventListener("submit", async (event) => {
     return;
   }
 
+  if (usesHostedSharedAccounts) {
+    const passwordHash = await hashPassword(signupPassword.value);
+    const { response, data } = await postHostedJson("/api/auth-signup", {
+      username,
+      email,
+      passwordHash,
+      countries
+    });
+    if (!response.ok || !data?.ok || !data?.user) {
+      signupMessage.classList.add("error");
+      signupMessage.textContent = data?.message || "Could not create your account right now.";
+      return;
+    }
+    pendingSignupEmail = data.user.email;
+    pendingSignupUser = data.user;
+    showSignupOtpGate(data.user, "");
+    return;
+  }
+
   const user = {
     username,
     email,
@@ -587,6 +619,41 @@ signinForm?.addEventListener("submit", async (event) => {
   const identity = signinIdentity.value.trim();
   const password = signinPassword.value;
   const passwordHash = await hashPassword(password);
+  signinMessage.classList.remove("error");
+
+  if (usesHostedSharedAccounts) {
+    const { response, data } = await postHostedJson("/api/auth-signin", {
+      identity,
+      passwordHash
+    });
+    if (!response.ok || !data?.ok) {
+      signinMessage.textContent = data?.message || "Could not sign in right now.";
+      signinMessage.classList.add("error");
+      if (data?.expired && data?.user) {
+        if (signinOpenPayment) signinOpenPayment.hidden = false;
+        showSigninPaymentModal(data.user);
+      } else if (signinOpenPayment) {
+        signinOpenPayment.hidden = true;
+      }
+      signinPassword.focus();
+      return;
+    }
+    if (data.requiresOtp && data.user) {
+      pendingSigninPassword = password;
+      pendingSigninUser = { ...data.user, signInChallenge: data.challenge || "" };
+      showSigninOtpGate(pendingSigninUser, "");
+      signinMessage.textContent = data.message || "Your email is not verified. A new OTP has been generated.";
+      return;
+    }
+    if (data.user && data.sessionToken) {
+      completeSignin({ ...data.user, sessionToken: data.sessionToken }, identity, password);
+      return;
+    }
+    signinMessage.textContent = data?.message || "Could not sign in right now.";
+    signinMessage.classList.add("error");
+    return;
+  }
+
   const user = findRegisteredUser(identity);
 
   if (!user || user.passwordHash !== passwordHash) {
@@ -629,6 +696,25 @@ signinForm?.addEventListener("submit", async (event) => {
 
 signupOtpForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (usesHostedSharedAccounts) {
+    const identity = pendingSignupEmail || signupEmail?.value || "";
+    const { response, data } = await postHostedJson("/api/auth-verify-otp", {
+      identity,
+      code: signupOtpCode?.value || "",
+      mode: "signup"
+    });
+    if (!response.ok || !data?.ok) {
+      signupOtpMessage.classList.add("error");
+      signupOtpMessage.textContent = data?.message || "Could not verify OTP right now.";
+      signupOtpCode?.focus();
+      return;
+    }
+    signupOtpMessage.classList.remove("error");
+    signupOtpMessage.textContent = data.message || "Email verified. Opening sign in...";
+    localStorage.setItem("dividendAccessMessage", "Email verified. Sign in to open your tracker.");
+    window.location.href = signinPageUrl();
+    return;
+  }
   const user = findRegisteredUser(pendingSignupEmail || signupEmail?.value || "");
   const result = await verifyUserOtp(user, signupOtpCode?.value || "");
   if (!result.ok) {
@@ -644,6 +730,23 @@ signupOtpForm?.addEventListener("submit", async (event) => {
 });
 
 signupResendOtp?.addEventListener("click", async () => {
+  if (usesHostedSharedAccounts) {
+    const identity = pendingSignupEmail || signupEmail?.value || "";
+    const { response, data } = await postHostedJson("/api/auth-resend-otp", { identity });
+    if (!response.ok || !data?.ok || !data?.user) {
+      signupOtpMessage.classList.add("error");
+      signupOtpMessage.textContent = data?.message || "Could not resend OTP right now.";
+      return;
+    }
+    pendingSignupEmail = data.user.email;
+    pendingSignupUser = data.user;
+    setOtpHelp(signupOtpHelp, data.user, "");
+    signupOtpMessage.classList.remove("error");
+    signupOtpMessage.textContent = data.message || "A new OTP has been generated. Enter it before it expires.";
+    signupOtpCode.value = "";
+    signupOtpCode?.focus();
+    return;
+  }
   const user = findRegisteredUser(pendingSignupEmail || signupEmail?.value || "") || pendingSignupUser;
   if (!user) {
     signupOtpMessage.classList.add("error");
@@ -667,6 +770,28 @@ signupResendOtp?.addEventListener("click", async () => {
 
 signinOtpForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (usesHostedSharedAccounts) {
+    const identity = signinIdentity?.value.trim() || pendingSigninUser?.email || "";
+    const { response, data } = await postHostedJson("/api/auth-verify-otp", {
+      identity,
+      code: signinOtpCode?.value || "",
+      mode: "signin",
+      challenge: pendingSigninUser?.signInChallenge || ""
+    });
+    if (!response.ok || !data?.ok) {
+      signinOtpMessage.classList.add("error");
+      signinOtpMessage.textContent = data?.message || "Could not verify OTP right now.";
+      if (data?.expired && data?.user) {
+        showSigninPaymentModal(data.user);
+      }
+      signinOtpCode?.focus();
+      return;
+    }
+    signinOtpMessage.classList.remove("error");
+    signinOtpMessage.textContent = data.message || "Email verified. Opening your tracker...";
+    completeSignin({ ...data.user, sessionToken: data.sessionToken }, identity, pendingSigninPassword || signinPassword?.value || "");
+    return;
+  }
   const identity = signinIdentity?.value.trim() || pendingSigninUser?.email || "";
   const user = pendingSigninUser || findRegisteredUser(identity);
   const result = await verifyUserOtp(user, signinOtpCode?.value || "");
@@ -689,6 +814,22 @@ signinOtpForm?.addEventListener("submit", async (event) => {
 });
 
 signinResendOtp?.addEventListener("click", async () => {
+  if (usesHostedSharedAccounts) {
+    const identity = pendingSigninUser?.email || signinIdentity?.value || "";
+    const { response, data } = await postHostedJson("/api/auth-resend-otp", { identity });
+    if (!response.ok || !data?.ok || !data?.user) {
+      signinOtpMessage.classList.add("error");
+      signinOtpMessage.textContent = data?.message || "Could not resend OTP right now.";
+      return;
+    }
+    pendingSigninUser = { ...pendingSigninUser, ...data.user };
+    setOtpHelp(signinOtpHelp, pendingSigninUser, "");
+    signinOtpMessage.classList.remove("error");
+    signinOtpMessage.textContent = data.message || "A new OTP has been generated. Enter it before it expires.";
+    signinOtpCode.value = "";
+    signinOtpCode?.focus();
+    return;
+  }
   const user = pendingSigninUser || findRegisteredUser(signinIdentity?.value || "");
   if (!user) {
     signinOtpMessage.classList.add("error");
@@ -725,6 +866,33 @@ forgotPasswordCancel?.addEventListener("click", () => {
 forgotPasswordForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const email = forgotEmail.value.trim();
+  forgotPasswordMessage.classList.remove("error");
+  if (usesHostedSharedAccounts) {
+    if (!isRealisticEmail(email)) {
+      forgotPasswordMessage.textContent = "Enter the real email address used for this account.";
+      forgotEmail.focus();
+      return;
+    }
+    if (forgotNewPassword.value !== forgotConfirmPassword.value) {
+      forgotPasswordMessage.textContent = "Both new passwords must match.";
+      forgotConfirmPassword.focus();
+      return;
+    }
+    const passwordHash = await hashPassword(forgotNewPassword.value);
+    const { response, data } = await postHostedJson("/api/auth-reset-password", {
+      email,
+      passwordHash
+    });
+    if (!response.ok || !data?.ok) {
+      forgotPasswordMessage.textContent = data?.message || "Could not reset password right now.";
+      return;
+    }
+    forgotPasswordMessage.textContent = data.message || "Password reset. You can now sign in with the new password.";
+    signinIdentity.value = email;
+    signinPassword.value = "";
+    signinPassword.focus();
+    return;
+  }
   const user = findRegisteredUser(email);
   if (!isRealisticEmail(email)) {
     forgotPasswordMessage.textContent = "Enter the real email address used for this account.";

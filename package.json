@@ -1,5 +1,7 @@
 {
   "scripts": {
-    "update:nigeria-dividends": "python scripts/scrape_nigeria_dividends.py"
+    "update:all-dividends": "npm run update:nigeria-dividends && npm run update:market-dividends",
+    "update:nigeria-dividends": "node scripts/scrape_nigeria_dividends_public.js",
+    "update:market-dividends": "node scripts/scrape_market_dividends.js"
   }
 }

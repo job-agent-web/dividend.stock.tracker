@@ -868,9 +868,14 @@ function mergedDividendSources(baseSource = {}, updateSource = {}) {
   };
 }
 
+function dividendRecordCount(source = {}) {
+  return Object.keys(source || {}).filter((key) => !String(key).startsWith("_")).length;
+}
+
 function applyStaticNigeriaDividendData() {
   const source = mergedDividendSources(window.NIGERIA_DIVIDEND_DATES || {}, window.NIGERIA_DIVIDEND_UPDATES || {});
   const meta = source._meta || {};
+  let applied = 0;
   Object.entries(source).forEach(([ticker, record]) => {
     if (ticker.startsWith("_") || !record) return;
     stocks
@@ -893,17 +898,20 @@ function applyStaticNigeriaDividendData() {
           nextDeclared: Boolean(record.qualificationDate || record.paymentDate),
           note: [record.note, meta.note].filter(Boolean).join(" ")
         });
+        applied += 1;
       });
   });
+  return applied;
 }
 
 applyStaticNigeriaDividendData();
 
 function applyStaticMarketDividendData() {
-  const source = window.MARKET_DIVIDEND_DATES || {};
+  const source = mergedDividendSources(window.MARKET_DIVIDEND_DATES || {}, window.MARKET_DIVIDEND_UPDATES || {});
   const meta = source._meta || {};
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  let applied = 0;
 
   Object.entries(source).forEach(([key, record]) => {
     if (key.startsWith("_") || !record) return;
@@ -932,11 +940,102 @@ function applyStaticMarketDividendData() {
           history: record.history || [],
           note: [record.note, meta.note].filter(Boolean).join(" ")
         });
+        applied += 1;
       });
   });
+  return applied;
 }
 
 applyStaticMarketDividendData();
+
+function currentSnapshotVersion(source = {}) {
+  const meta = source?._meta || source?.meta || source?.records?._meta || {};
+  const audit = source?.audit || {};
+  return JSON.stringify({
+    generatedAt: source?.generatedAt || audit.generatedAt || meta.generatedAt || "",
+    verifiedAt: meta.verifiedAt || audit.verifiedAt || "",
+    note: meta.note || "",
+    sourceName: meta.sourceName || "",
+    sourceUrl: meta.sourceUrl || "",
+    successes: audit.successes || 0,
+    totalTargets: audit.totalTargets || 0
+  });
+}
+
+function snapshotRecords(source = {}) {
+  if (source?.records && typeof source.records === "object" && !Array.isArray(source.records)) {
+    return source.records;
+  }
+  return source;
+}
+
+function activeDetailStock() {
+  return stocks.find((stock) => stock.ticker === selectedTicker) || selectedStock || stocks[0];
+}
+
+function rerenderDividendSurfaces() {
+  renderList();
+  renderDetail(activeDetailStock());
+}
+
+async function fetchHostedDividendSnapshot(pathname) {
+  if (window.location.protocol === "file:") return null;
+  const separator = pathname.includes("?") ? "&" : "?";
+  const response = await fetch(`${pathname}${separator}ts=${Date.now()}`, { cache: "no-store" }).catch(() => null);
+  if (!response?.ok) return null;
+  return response.json().catch(() => null);
+}
+
+async function refreshHostedStaticDividendSnapshots() {
+  if (window.location.protocol === "file:" || hostedStaticDividendRefreshInFlight) {
+    return { refreshed: false, sources: 0, rows: 0 };
+  }
+
+  hostedStaticDividendRefreshInFlight = true;
+  try {
+    const [nigeriaPayload, marketPayload] = await Promise.all([
+      fetchHostedDividendSnapshot(staticDividendSnapshotPaths.nigeria),
+      fetchHostedDividendSnapshot(staticDividendSnapshotPaths.market)
+    ]);
+
+    let changedSources = 0;
+    let appliedRows = 0;
+
+    if (nigeriaPayload) {
+      const version = currentSnapshotVersion(nigeriaPayload);
+      if (version && version !== hostedDividendSnapshotVersions.nigeria) {
+        window.NIGERIA_DIVIDEND_UPDATES = snapshotRecords(nigeriaPayload);
+        hostedDividendSnapshotVersions.nigeria = version;
+        changedSources += 1;
+        appliedRows += applyStaticNigeriaDividendData() || dividendRecordCount(window.NIGERIA_DIVIDEND_UPDATES);
+      }
+    }
+
+    if (marketPayload) {
+      const version = currentSnapshotVersion(marketPayload);
+      if (version && version !== hostedDividendSnapshotVersions.market) {
+        window.MARKET_DIVIDEND_UPDATES = snapshotRecords(marketPayload);
+        hostedDividendSnapshotVersions.market = version;
+        changedSources += 1;
+        appliedRows += applyStaticMarketDividendData() || dividendRecordCount(window.MARKET_DIVIDEND_UPDATES);
+      }
+    }
+
+    if (changedSources) {
+      rerenderDividendSurfaces();
+      const now = new Date();
+      const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      if (lastUpdated) {
+        lastUpdated.textContent = `${appliedRows} dividend rows refreshed from uploaded files at ${time}`;
+      }
+      return { refreshed: true, sources: changedSources, rows: appliedRows };
+    }
+
+    return { refreshed: false, sources: 0, rows: 0 };
+  } finally {
+    hostedStaticDividendRefreshInFlight = false;
+  }
+}
 
 const protectedDividendTickers = new Set([
   "Nigeria:MTNN",
@@ -1126,6 +1225,10 @@ const usersStorageKey = "dividendRegisteredUsers";
 const dashboardStateKey = "dividendDashboardState";
 const freeTrialDays = 7;
 const inactivityLimitMs = 60 * 60 * 1000;
+const usesHostedSharedAccounts = window.location.protocol !== "file:";
+let hostedProfileSyncTimer = null;
+let hostedProfileSyncInFlight = false;
+let hostedProfileSyncPending = {};
 const currencyNames = Object.keys(fxRatesToUsd);
 const chartRanges = {
   daily: { title: "Daily price history", points: 30, step: "day" },
@@ -1135,6 +1238,23 @@ const chartRanges = {
   "5year": { title: "5-year price history", points: 60, step: "month" },
   lifetime: { title: "All time price history", points: 120, step: "quarter" }
 };
+const staticDividendSnapshotPaths = {
+  nigeria: "nigeria-dividends-scraped.json",
+  market: "market-dividends-scraped.json"
+};
+const hostedStaticDividendRefreshMs = 5 * 60 * 1000;
+const hostedDividendSweepRefreshMs = 20 * 60 * 1000;
+const hostedDividendSweepBatchSize = 60;
+const hostedDividendSweepBatchCount = 2;
+let hostedDividendSnapshotVersions = {
+  nigeria: "",
+  market: ""
+};
+let hostedStaticDividendRefreshInFlight = false;
+let hostedDividendSweepInFlight = false;
+let hostedDividendSweepCursor = 0;
+hostedDividendSnapshotVersions.nigeria = currentSnapshotVersion(window.NIGERIA_DIVIDEND_UPDATES || window.NIGERIA_DIVIDEND_DATES || {});
+hostedDividendSnapshotVersions.market = currentSnapshotVersion(window.MARKET_DIVIDEND_UPDATES || window.MARKET_DIVIDEND_DATES || {});
 const marketDropdownHome = marketDropdown?.parentElement || null;
 const marketDropdownHomeNext = marketDropdown?.nextSibling || null;
 
@@ -1162,16 +1282,180 @@ function readDashboardState(user = currentUser) {
   return states?.[key] || null;
 }
 
-function writeDashboardState(nextState) {
-  const key = dashboardUserKey();
-  if (!key) return;
+function setDashboardStateForUser(user, nextState) {
+  const key = dashboardUserKey(user);
+  if (!key) return null;
   const states = readJson(dashboardStateKey, {});
   states[key] = {
     ...(states[key] || {}),
-    ...nextState,
+    ...(nextState || {}),
     updatedAt: new Date().toISOString()
   };
   writeJson(dashboardStateKey, states);
+  return states[key];
+}
+
+async function postHostedJson(url, payload = {}) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    cache: "no-store",
+    credentials: "same-origin",
+    body: JSON.stringify(payload)
+  });
+  let data = {};
+  try {
+    data = await response.json();
+  } catch {
+    data = {};
+  }
+  return { response, data };
+}
+
+function canUseHostedProfileSync(user = currentUser || readStoredUser()) {
+  return usesHostedSharedAccounts && Boolean(user?.email) && Boolean(user?.sessionToken);
+}
+
+function sanitizeStockKeys(value) {
+  return Array.isArray(value) ? [...new Set(value.filter(Boolean))] : [];
+}
+
+function sanitizeHoldings(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function sanitizeMarkets(value) {
+  return Array.isArray(value) ? allMarkets.filter((market) => value.includes(market)) : [];
+}
+
+function redirectToSignin(message) {
+  if (message) {
+    localStorage.setItem("dividendAccessMessage", message);
+  }
+  localStorage.removeItem("dividendProfileUser");
+  localStorage.removeItem("dividendLastActivityAt");
+  window.location.href = signupPageUrl();
+}
+
+function mergeHostedUserState(remoteUser, storedUser = readStoredUser()) {
+  const sessionToken = storedUser?.sessionToken || currentUser?.sessionToken || "";
+  const localWatchlist = sanitizeStockKeys(watchlistKeys);
+  const localPortfolio = sanitizeHoldings(portfolioHoldings);
+  const localCompare = sanitizeStockKeys(compareKeys);
+  const localMarkets = sanitizeMarkets(storedUser?.visibleMarkets || activeMarkets);
+  const localDashboardState = readDashboardState(storedUser) || {};
+  const pendingUpdates = {};
+  const mergedUser = ensureAccessFields({ ...remoteUser, sessionToken });
+  const defaultMarkets = Array.isArray(mergedUser.countries)
+    ? allMarkets.filter((market) => mergedUser.countries.includes(market))
+    : [...allMarkets];
+
+  const hostedWatchlist = sanitizeStockKeys(mergedUser.watchlistKeys);
+  watchlistKeys = hostedWatchlist.length ? hostedWatchlist : localWatchlist;
+  mergedUser.watchlistKeys = watchlistKeys;
+  if (!hostedWatchlist.length && localWatchlist.length) {
+    pendingUpdates.watchlistKeys = watchlistKeys;
+  }
+  writeJson("dividendWatchlist", watchlistKeys);
+
+  const hostedPortfolio = sanitizeHoldings(mergedUser.portfolioHoldings);
+  portfolioHoldings = Object.keys(hostedPortfolio).length ? hostedPortfolio : localPortfolio;
+  mergedUser.portfolioHoldings = portfolioHoldings;
+  if (!Object.keys(hostedPortfolio).length && Object.keys(localPortfolio).length) {
+    pendingUpdates.portfolioHoldings = portfolioHoldings;
+  }
+  writeJson("dividendPortfolio", portfolioHoldings);
+
+  const hostedCompare = sanitizeStockKeys(mergedUser.compareKeys);
+  compareKeys = hostedCompare.length ? hostedCompare : localCompare;
+  mergedUser.compareKeys = compareKeys;
+  if (!hostedCompare.length && localCompare.length) {
+    pendingUpdates.compareKeys = compareKeys;
+  }
+  writeJson("dividendCompareStocks", compareKeys);
+
+  const hostedMarkets = sanitizeMarkets(mergedUser.visibleMarkets);
+  mergedUser.visibleMarkets = hostedMarkets.length
+    ? hostedMarkets
+    : (localMarkets.length ? localMarkets : defaultMarkets);
+  if (!hostedMarkets.length && localMarkets.length) {
+    pendingUpdates.visibleMarkets = mergedUser.visibleMarkets;
+  }
+
+  const hostedDashboardState = sanitizeHoldings(mergedUser.dashboardState);
+  if (Object.keys(hostedDashboardState).length) {
+    mergedUser.dashboardState = setDashboardStateForUser(mergedUser, hostedDashboardState);
+  } else if (Object.keys(localDashboardState).length) {
+    mergedUser.dashboardState = setDashboardStateForUser(mergedUser, localDashboardState);
+    pendingUpdates.dashboardState = mergedUser.dashboardState;
+  }
+
+  return { user: mergedUser, pendingUpdates };
+}
+
+async function pushHostedProfileNow(user, updates = {}) {
+  if (!canUseHostedProfileSync(user) || !Object.keys(updates).length) return;
+  try {
+    const { response, data } = await postHostedJson("/api/auth-sync-profile", {
+      email: user.email,
+      sessionToken: user.sessionToken,
+      updates
+    });
+    if ((response.status === 401 || response.status === 403) && data?.message) {
+      redirectToSignin(data.message);
+    }
+  } catch {}
+}
+
+function queueHostedProfileSync(updates = {}, delayMs = 300) {
+  if (!canUseHostedProfileSync() || !Object.keys(updates).length) return;
+  hostedProfileSyncPending = {
+    ...hostedProfileSyncPending,
+    ...updates
+  };
+  window.clearTimeout(hostedProfileSyncTimer);
+  hostedProfileSyncTimer = window.setTimeout(() => {
+    void flushHostedProfileSync();
+  }, delayMs);
+}
+
+async function flushHostedProfileSync() {
+  if (hostedProfileSyncInFlight || !canUseHostedProfileSync()) return;
+  const pending = hostedProfileSyncPending;
+  if (!Object.keys(pending).length) return;
+  hostedProfileSyncPending = {};
+  hostedProfileSyncInFlight = true;
+  const user = currentUser || readStoredUser();
+  try {
+    const { response, data } = await postHostedJson("/api/auth-sync-profile", {
+      email: user.email,
+      sessionToken: user.sessionToken,
+      updates: pending
+    });
+    if (response.status === 401 || response.status === 403) {
+      redirectToSignin(data?.message || "Your sign-in session has expired. Please sign in again.");
+      return;
+    }
+    if (response.ok && data?.ok && data?.user) {
+      const merged = mergeHostedUserState(data.user, user);
+      currentUser = merged.user;
+      writeStoredUser(currentUser);
+    }
+  } catch {} finally {
+    hostedProfileSyncInFlight = false;
+    if (Object.keys(hostedProfileSyncPending).length) {
+      hostedProfileSyncTimer = window.setTimeout(() => {
+        void flushHostedProfileSync();
+      }, 250);
+    }
+  }
+}
+
+function writeDashboardState(nextState) {
+  const state = setDashboardStateForUser(currentUser, nextState);
+  if (state && canUseHostedProfileSync()) {
+    queueHostedProfileSync({ dashboardState: state }, 450);
+  }
 }
 
 function saveDashboardState() {
@@ -1770,7 +2054,8 @@ async function fetchHostedMarketData(visibleStocks, interval = historyIntervalFo
       .map((stock) => `${stock.ticker}:${stock.market}`)
       .join(",");
     const dividendFlag = options.dividends ? "&dividends=1" : "";
-    const url = `/api/market-data?interval=${encodeURIComponent(interval)}&symbols=${encodeURIComponent(symbols)}${dividendFlag}`;
+    const dividendOnlyFlag = options.dividendsOnly ? "&dividendsOnly=1" : "";
+    const url = `/api/market-data?interval=${encodeURIComponent(interval)}&symbols=${encodeURIComponent(symbols)}${dividendFlag}${dividendOnlyFlag}`;
     const response = await fetch(url, { cache: "no-store" }).catch(() => null);
     if (!response?.ok) continue;
     const data = await response.json().catch(() => null);
@@ -2078,6 +2363,101 @@ async function verifyOpenedStockDividend(stock) {
   }
 }
 
+function dividendSweepPriority(stock) {
+  let priority = 0;
+  const key = stockKey(stock);
+  if (selectedStock && stockKey(selectedStock) === key) priority += 5000;
+  if (watchlistKeys.includes(key)) priority += 3000;
+  if (portfolioHoldings[key]) priority += 2500;
+  if (!hasVerifiedDividendDate(stock, "exDate", stock.exDate)) priority += 1200;
+  if (!hasVerifiedDividendDate(stock, "payDate", stock.payDate)) priority += 900;
+  if (dividendCycleDatesHavePassed(stock)) priority += 800;
+  const daysToQualification = daysUntil(stock.exDate);
+  const daysToPayment = daysUntil(stock.payDate);
+  if (Number.isFinite(daysToQualification) && daysToQualification >= 0 && daysToQualification <= 120) {
+    priority += 600 - daysToQualification;
+  }
+  if (Number.isFinite(daysToPayment) && daysToPayment >= 0 && daysToPayment <= 120) {
+    priority += 400 - daysToPayment;
+  }
+  return priority;
+}
+
+function buildHostedDividendSweepUniverse() {
+  const source = stocksForSelectedMarkets()
+    .filter((stock) => {
+      if (!stock) return false;
+      if (!stock.exDate || !stock.payDate) return true;
+      if (dividendCycleDatesHavePassed(stock)) return true;
+      const nextDays = daysUntil(stock.exDate);
+      return !Number.isFinite(nextDays) || nextDays <= 180;
+    })
+    .sort((a, b) => {
+      const priorityGap = dividendSweepPriority(b) - dividendSweepPriority(a);
+      if (priorityGap !== 0) return priorityGap;
+      return `${a.market}:${a.ticker}`.localeCompare(`${b.market}:${b.ticker}`);
+    });
+  return [...new Map(source.map((stock) => [stockKey(stock), stock])).values()];
+}
+
+function takeHostedDividendSweepBatch(source, manual = false) {
+  if (!source.length) return [];
+  if (manual) return source;
+  const batchSize = hostedDividendSweepBatchSize * hostedDividendSweepBatchCount;
+  if (hostedDividendSweepCursor >= source.length) hostedDividendSweepCursor = 0;
+  let batch = source.slice(hostedDividendSweepCursor, hostedDividendSweepCursor + batchSize);
+  if (!batch.length) {
+    hostedDividendSweepCursor = 0;
+    batch = source.slice(0, batchSize);
+  }
+  hostedDividendSweepCursor = (hostedDividendSweepCursor + batch.length) % source.length;
+  return batch;
+}
+
+async function refreshHostedDividendSweep(manual = false) {
+  if (window.location.protocol === "file:" || hostedDividendSweepInFlight) {
+    return { refreshed: false, checked: 0, updated: 0 };
+  }
+
+  const universe = buildHostedDividendSweepUniverse();
+  const sweepStocks = takeHostedDividendSweepBatch(universe, manual);
+  if (!sweepStocks.length) return { refreshed: false, checked: 0, updated: 0 };
+
+  hostedDividendSweepInFlight = true;
+  try {
+    const hostedData = await fetchHostedMarketData(sweepStocks, "m", {
+      dividends: true,
+      dividendsOnly: true
+    }).catch(() => null);
+
+    if (!hostedData?.quotes) {
+      return { refreshed: false, checked: sweepStocks.length, updated: 0 };
+    }
+
+    let updated = 0;
+    sweepStocks.forEach((stock) => {
+      const quote = hostedData.quotes[`${stock.market}:${stock.ticker}`];
+      if (!quote?.dividend) return;
+      if (applyDividendDataToStock(stock, quote.dividend)) {
+        updated += 1;
+      }
+    });
+
+    if (updated) {
+      rerenderDividendSurfaces();
+      const now = new Date();
+      const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      if (lastUpdated) {
+        lastUpdated.textContent = `${updated} dividend records refreshed from live public sources at ${time}`;
+      }
+    }
+
+    return { refreshed: updated > 0, checked: sweepStocks.length, updated };
+  } finally {
+    hostedDividendSweepInFlight = false;
+  }
+}
+
 async function refreshSelectedRsiHistory() {
   const stock = stocks.find((item) => item.ticker === selectedTicker) || selectedStock;
   if (!stock) return 0;
@@ -2109,8 +2489,11 @@ async function refreshLivePrices(manual = false) {
   const filteredStocks = getFilteredStocks();
   const autoLimit = window.location.protocol === "file:" ? 120 : filteredStocks.length;
   const visibleStocks = manual ? filteredStocks : filteredStocks.slice(0, autoLimit);
+  const includeDividendData = manual;
 
-  const hostedData = await fetchHostedMarketData(visibleStocks).catch(() => null);
+  const hostedData = await fetchHostedMarketData(visibleStocks, historyIntervalForRange(), {
+    dividends: includeDividendData
+  }).catch(() => null);
   if (hostedData?.quotes) {
     visibleStocks.forEach((stock) => {
       const quote = hostedData.quotes[`${stock.market}:${stock.ticker}`];
@@ -2172,8 +2555,10 @@ async function refreshLivePrices(manual = false) {
   }
 
   const rsiUpdates = await refreshSelectedRsiHistory();
+  const snapshotRefresh = manual ? await refreshHostedStaticDividendSnapshots().catch(() => ({ refreshed: false, rows: 0 })) : { refreshed: false, rows: 0 };
+  dividendUpdates += Number(snapshotRefresh.rows || 0);
 
-  if (updated === 0 && rsiUpdates === 0) {
+  if (updated === 0 && rsiUpdates === 0 && dividendUpdates === 0) {
     if (lastUpdated) lastUpdated.textContent = "Live update unavailable; using curated data";
   } else {
     const now = new Date();
@@ -2188,8 +2573,7 @@ async function refreshLivePrices(manual = false) {
 
   refreshPrices.disabled = false;
   refreshPrices.textContent = "Refresh live prices";
-  renderList();
-  renderDetail(stocks.find((stock) => stock.ticker === selectedTicker) || stocks[0]);
+  rerenderDividendSurfaces();
 }
 
 function populateCategories() {
@@ -2234,6 +2618,7 @@ function populateMarketFilter() {
     currentUser = { ...currentUser, visibleMarkets: activeMarkets };
     writeStoredUser(currentUser);
     syncRegisteredUser(currentUser);
+    queueHostedProfileSync({ visibleMarkets: activeMarkets }, 150);
   }
 
   marketMenu.innerHTML = markets.map((market) => `
@@ -2287,6 +2672,7 @@ function normalizeUserKey(value) {
 }
 
 function syncRegisteredUser(user) {
+  if (usesHostedSharedAccounts || !user) return;
   if (!user) return;
   const users = readJson(usersStorageKey, []);
   const list = Array.isArray(users) ? users : [];
@@ -2300,6 +2686,7 @@ function syncRegisteredUser(user) {
 }
 
 function registeredUserMatch(user) {
+  if (usesHostedSharedAccounts || !user) return null;
   if (!user) return null;
   const users = readJson(usersStorageKey, []);
   const list = Array.isArray(users) ? users : [];
@@ -2388,32 +2775,38 @@ function hidePaymentModal() {
   }
 }
 
-function logoutExpiredUser(user) {
+async function logoutExpiredUser(user) {
   const expiredUser = {
     ...user,
     lastSeenAt: new Date().toISOString(),
     loggedOutAt: new Date().toISOString()
   };
+  await pushHostedProfileNow(expiredUser, {
+    lastSeenAt: expiredUser.lastSeenAt,
+    loggedOutAt: expiredUser.loggedOutAt,
+    logoutReason: "Access expired"
+  });
   syncRegisteredUser(expiredUser);
-  localStorage.setItem("dividendAccessMessage", "Your access has expired. Please choose a plan below to regain access.");
-  localStorage.removeItem("dividendProfileUser");
-  window.location.href = signupPageUrl();
+  redirectToSignin("Your access has expired. Please choose a plan below to regain access.");
 }
 
-function logoutLockedUser(user) {
+async function logoutLockedUser(user) {
   const lockedUser = {
     ...ensureAccessFields({ ...user, ...registeredUserMatch(user), isLocked: true }),
     lastSeenAt: new Date().toISOString(),
     loggedOutAt: new Date().toISOString(),
     logoutReason: "Account unavailable"
   };
+  await pushHostedProfileNow(lockedUser, {
+    lastSeenAt: lockedUser.lastSeenAt,
+    loggedOutAt: lockedUser.loggedOutAt,
+    logoutReason: lockedUser.logoutReason
+  });
   syncRegisteredUser(lockedUser);
-  localStorage.setItem("dividendAccessMessage", "This account is unavailable. Contact support for help.");
-  localStorage.removeItem("dividendProfileUser");
-  window.location.href = signupPageUrl();
+  redirectToSignin("This account is unavailable. Contact support for help.");
 }
 
-function logoutInactiveUser() {
+async function logoutInactiveUser() {
   const user = readStoredUser();
   if (!user) return;
   const inactiveUser = {
@@ -2423,13 +2816,17 @@ function logoutInactiveUser() {
     loggedOutAt: new Date().toISOString(),
     logoutReason: "Inactive for 1 hour"
   };
+  await pushHostedProfileNow(inactiveUser, {
+    lastSeenAt: inactiveUser.lastSeenAt,
+    lastActivityAt: inactiveUser.lastActivityAt,
+    loggedOutAt: inactiveUser.loggedOutAt,
+    logoutReason: inactiveUser.logoutReason
+  });
   syncRegisteredUser(inactiveUser);
-  localStorage.setItem("dividendAccessMessage", "You were logged out after 1 hour of inactivity.");
-  localStorage.removeItem("dividendProfileUser");
-  window.location.href = signupPageUrl();
+  redirectToSignin("You were logged out after 1 hour of inactivity.");
 }
 
-function logoutCurrentUser() {
+async function logoutCurrentUser() {
   const user = readStoredUser();
   if (user) {
     const loggedOutUser = {
@@ -2438,19 +2835,23 @@ function logoutCurrentUser() {
       loggedOutAt: new Date().toISOString(),
       logoutReason: "Manual logout"
     };
+    await pushHostedProfileNow(loggedOutUser, {
+      lastSeenAt: loggedOutUser.lastSeenAt,
+      loggedOutAt: loggedOutUser.loggedOutAt,
+      logoutReason: loggedOutUser.logoutReason
+    });
     syncRegisteredUser(loggedOutUser);
   }
-  localStorage.removeItem("dividendProfileUser");
-  localStorage.removeItem("dividendLastActivityAt");
-  localStorage.setItem("dividendAccessMessage", "You have been logged out.");
-  window.location.href = signupPageUrl();
+  redirectToSignin("You have been logged out.");
 }
 
 function resetInactivityTimer() {
   if (!readStoredUser()) return;
   localStorage.setItem("dividendLastActivityAt", new Date().toISOString());
   window.clearTimeout(inactivityTimer);
-  inactivityTimer = window.setTimeout(logoutInactiveUser, inactivityLimitMs);
+  inactivityTimer = window.setTimeout(() => {
+    void logoutInactiveUser();
+  }, inactivityLimitMs);
 }
 
 function startInactivityLogout() {
@@ -2460,25 +2861,25 @@ function startInactivityLogout() {
   resetInactivityTimer();
 }
 
-function checkAccessStillActive() {
+async function checkAccessStillActive() {
   const user = readStoredUser();
   if (!user) return;
   const accessUser = ensureAccessFields(user);
   if (isUserLocked(accessUser)) {
-    logoutLockedUser(accessUser);
+    await logoutLockedUser(accessUser);
     return;
   }
   if (!isAccessActive(accessUser)) {
-    logoutExpiredUser(accessUser);
+    await logoutExpiredUser(accessUser);
   }
 }
 
-function enforceStoredSession() {
+async function enforceStoredSession() {
   if (!readStoredUser()) {
     window.location.href = signupPageUrl();
     return;
   }
-  checkAccessStillActive();
+  await checkAccessStillActive();
 }
 
 function setContactStatus(tone, message) {
@@ -2618,22 +3019,49 @@ function applyProfileToFilters() {
   scheduleStockDividendVerification(stock);
 }
 
-function renderAuthState() {
-  currentUser = readStoredUser();
+async function renderAuthState() {
+  const storedUser = readStoredUser();
+  currentUser = storedUser;
+  if (!storedUser) {
+    window.location.href = signupPageUrl();
+    return;
+  }
+  if (canUseHostedProfileSync(storedUser)) {
+    const { response, data } = await postHostedJson("/api/auth-session-user", {
+      email: storedUser.email,
+      sessionToken: storedUser.sessionToken
+    });
+    if (!response.ok || !data?.ok || !data?.user) {
+      redirectToSignin(data?.message || "Your sign-in session has expired. Please sign in again.");
+      return;
+    }
+    const mergedHosted = mergeHostedUserState(data.user, storedUser);
+    currentUser = mergedHosted.user;
+    writeStoredUser(currentUser);
+    if (Object.keys(mergedHosted.pendingUpdates).length) {
+      queueHostedProfileSync(mergedHosted.pendingUpdates, 0);
+    }
+  }
   if (currentUser) {
     const registeredUser = registeredUserMatch(currentUser);
     currentUser = ensureAccessFields({ ...currentUser, ...registeredUser });
     if (isUserLocked(currentUser)) {
-      logoutLockedUser(currentUser);
+      await logoutLockedUser(currentUser);
       return;
     }
     currentUser.lastSeenAt = new Date().toISOString();
     currentUser.lastActivityAt = new Date().toISOString();
     writeStoredUser(currentUser);
     syncRegisteredUser(currentUser);
+    if (canUseHostedProfileSync()) {
+      queueHostedProfileSync({
+        lastSeenAt: currentUser.lastSeenAt,
+        lastActivityAt: currentUser.lastActivityAt
+      }, 0);
+    }
     headerGreeting.textContent = `Welcome, ${displayName(currentUser.username)} · ${accessLabel(currentUser)}`;
     if (!isAccessActive(currentUser)) {
-      logoutExpiredUser(currentUser);
+      await logoutExpiredUser(currentUser);
       return;
     }
     hidePaymentModal();
@@ -2680,6 +3108,7 @@ function applyMarketSelection() {
     currentUser = { ...currentUser, visibleMarkets: activeMarkets };
     writeStoredUser(currentUser);
     syncRegisteredUser(currentUser);
+    queueHostedProfileSync({ visibleMarkets: activeMarkets }, 150);
   }
   updateMarketSummary();
   renderLearningChannels();
@@ -2991,6 +3420,7 @@ function savePortfolioProfile() {
     currentUser = { ...currentUser, portfolioHoldings };
     writeStoredUser(currentUser);
   }
+  queueHostedProfileSync({ portfolioHoldings }, 150);
 }
 
 function renderAlertsPane() {
@@ -3063,7 +3493,13 @@ function renderCompareControls() {
   const defaults = [selectedStock, ...currentWatchlistStocks(), ...candidates]
     .filter(Boolean)
     .map(stockKey);
-  compareKeys = [...new Set([...compareKeys, ...defaults])].slice(0, 4);
+  const nextCompareKeys = [...new Set([...compareKeys, ...defaults])].slice(0, 4);
+  const compareChanged = nextCompareKeys.join("|") !== compareKeys.join("|");
+  compareKeys = nextCompareKeys;
+  if (compareChanged) {
+    writeJson("dividendCompareStocks", compareKeys);
+    queueHostedProfileSync({ compareKeys }, 150);
+  }
   compareSelects.forEach((select, index) => {
     const current = compareKeys[index] || "";
     select.innerHTML = '<option value="">Choose stock</option>' + candidates.map((stock) => `
@@ -3846,7 +4282,7 @@ document.addEventListener("keydown", (event) => {
 });
 window.addEventListener("storage", (event) => {
   if (event.key === usersStorageKey || event.key === "dividendProfileUser") {
-    enforceStoredSession();
+    void enforceStoredSession();
   }
 });
 
@@ -3866,6 +4302,7 @@ watchlistPane.addEventListener("click", (event) => {
   if (removeButton) {
     watchlistKeys = watchlistKeys.filter((item) => item !== removeButton.dataset.key);
     writeJson("dividendWatchlist", watchlistKeys);
+    queueHostedProfileSync({ watchlistKeys }, 150);
     renderUtilityPanes(selectedStock);
     return;
   }
@@ -3891,6 +4328,7 @@ watchlistToggle?.addEventListener("click", () => {
     ? watchlistKeys.filter((item) => item !== key)
     : [...watchlistKeys, key];
   writeJson("dividendWatchlist", watchlistKeys);
+  queueHostedProfileSync({ watchlistKeys }, 150);
   renderUtilityPanes(selectedStock);
 });
 
@@ -3901,6 +4339,7 @@ detailWatchStar?.addEventListener("click", () => {
     ? watchlistKeys.filter((item) => item !== key)
     : [...watchlistKeys, key];
   writeJson("dividendWatchlist", watchlistKeys);
+  queueHostedProfileSync({ watchlistKeys }, 150);
   renderUtilityPanes(selectedStock);
   if (!wasInWatchlist) showWatchlistToast("Added to watchlist");
 });
@@ -3953,6 +4392,7 @@ compareSelects.forEach((select, index) => {
     compareKeys[index] = select.value;
     compareKeys = compareKeys.filter(Boolean);
     writeJson("dividendCompareStocks", compareKeys);
+    queueHostedProfileSync({ compareKeys }, 150);
     renderCompareControls();
     renderComparePane();
   });
@@ -4032,20 +4472,32 @@ window.addEventListener("scroll", () => {
 
 window.addEventListener("beforeunload", saveDashboardState);
 
-populateCategories();
-renderIpoPanel([]);
-renderAuthState();
-startInactivityLogout();
-renderInitialSelection();
-if (window.location.protocol !== "file:") {
-  refreshLivePrices();
+async function bootstrapDashboard() {
+  populateCategories();
+  renderIpoPanel([]);
+  await renderAuthState();
+  startInactivityLogout();
+  renderInitialSelection();
+  if (window.location.protocol !== "file:") {
+    refreshLivePrices();
+    refreshHostedStaticDividendSnapshots();
+    refreshHostedDividendSweep();
+  }
 }
+
+void bootstrapDashboard();
 setInterval(() => {
   if (!document.hidden) refreshLivePrices();
 }, liveRefreshInterval());
 setInterval(() => {
+  if (!document.hidden) refreshHostedStaticDividendSnapshots();
+}, hostedStaticDividendRefreshMs);
+setInterval(() => {
+  if (!document.hidden) refreshHostedDividendSweep();
+}, hostedDividendSweepRefreshMs);
+setInterval(() => {
   if (!document.hidden) refreshIpoCalendar();
 }, 6 * 60 * 60 * 1000);
 setInterval(() => {
-  if (!document.hidden) checkAccessStillActive();
+  if (!document.hidden) void checkAccessStillActive();
 }, 60 * 1000);

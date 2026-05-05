@@ -108,8 +108,10 @@ function loadStaticDividend(ticker, market) {
   }
 
   const marketRecords = readWindowDataset("market-dividends.js", "MARKET_DIVIDEND_DATES");
-  const record = marketRecords[`${market}:${ticker}`];
-  return staticRecordToDividend(record, marketRecords._meta || {}, market);
+  const marketUpdates = readWindowDataset("market-dividends-scraped.js", "MARKET_DIVIDEND_UPDATES");
+  const merged = mergeDividendSources(marketRecords, marketUpdates);
+  const record = merged[`${market}:${ticker}`];
+  return staticRecordToDividend(record, merged._meta || {}, market);
 }
 
 function mergeEvidence(...groups) {
@@ -125,11 +127,11 @@ function mergeEvidence(...groups) {
 
 function providerEvidence(dividend) {
   if (!dividend) return [];
-  return [{
+  return mergeEvidence([{
     name: dividend.provider || "Dividend data provider",
     url: dividend.sourceUrl || "Configured market-data provider endpoint",
     confidence: dividend.paymentDateKnown === false ? 70 : 86
-  }];
+  }], Array.isArray(dividend.sources) ? dividend.sources : []);
 }
 
 function chooseDividend(staticDividend, providerDividend) {

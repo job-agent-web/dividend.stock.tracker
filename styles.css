@@ -1450,6 +1450,12 @@ main {
   text-decoration: none;
 }
 
+.dividend-auth-card .signin-signup-link {
+  width: 100%;
+  justify-content: center;
+  margin-top: -2px;
+}
+
 .admin-summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2293,6 +2299,71 @@ textarea {
 .watchlist-toast.is-visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+.pwa-update-banner {
+  position: fixed;
+  right: 18px;
+  bottom: 88px;
+  z-index: 70;
+  display: grid;
+  gap: 12px;
+  width: min(420px, calc(100vw - 28px));
+  padding: 14px 16px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(18px);
+}
+
+.pwa-update-banner[hidden] {
+  display: none;
+}
+
+.pwa-update-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.pwa-update-copy strong {
+  font-size: 0.98rem;
+  color: #0f172a;
+}
+
+.pwa-update-copy span {
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: #475569;
+}
+
+.pwa-update-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.primary-button.small,
+.ghost-button.small {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+
+body[data-theme="dark"] .pwa-update-banner {
+  border-color: rgba(96, 165, 250, 0.28);
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow: 0 18px 45px rgba(2, 6, 23, 0.45);
+}
+
+body[data-theme="dark"] .pwa-update-copy strong {
+  color: #f8fafc;
+}
+
+body[data-theme="dark"] .pwa-update-copy span {
+  color: #cbd5e1;
 }
 
 .section-heading span {

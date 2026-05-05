@@ -1,4 +1,4 @@
-const cacheName = "dividend-stock-tracker-v1";
+const cacheName = "dividend-stock-tracker-v2";
 const coreAssets = [
   "signin.html",
   "signup.html",
@@ -6,6 +6,7 @@ const coreAssets = [
   "styles.css",
   "signup.js",
   "app.js",
+  "pwa-updates.js",
   "online-dividend-universe.js",
   "manifest.webmanifest",
   "app-icon.svg"
@@ -15,6 +16,7 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(cacheName).then((cache) => cache.addAll(coreAssets)).catch(() => null)
   );
+  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
@@ -23,6 +25,13 @@ self.addEventListener("activate", (event) => {
       keys.filter((key) => key !== cacheName).map((key) => caches.delete(key))
     ))
   );
+  self.clients.claim();
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("fetch", (event) => {

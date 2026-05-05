@@ -22,6 +22,9 @@ const adminMessageRecipients = document.querySelector("#adminMessageRecipients")
 const adminMessageStatus = document.querySelector("#adminMessageStatus");
 const usersStorageKey = "dividendRegisteredUsers";
 const freeTrialDays = 7;
+const usesHostedSharedAccounts = window.location.protocol !== "file:";
+let hostedUsersCache = [];
+let hostedUsersLoaded = false;
 const planOptions = {
   trial: { label: "Free week", days: 7 },
   month: { label: "1 month", days: 30 },
@@ -51,7 +54,7 @@ async function hashPassword(password) {
 function showAdminDashboard() {
   if (adminGate) adminGate.hidden = true;
   if (adminDashboard) adminDashboard.hidden = false;
-  renderUsers();
+  void renderUsers(true);
 }
 
 function lockAdminDashboard() {
@@ -161,6 +164,33 @@ function normalize(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+async function getJson(url) {
+  const response = await fetch(url, {
+    method: "GET",
+    cache: "no-store",
+    credentials: "same-origin"
+  });
+  let data = {};
+  try {
+    data = await response.json();
+  } catch {
+    data = {};
+  }
+  return { response, data };
+}
+
+async function loadUsers(force = false) {
+  if (!usesHostedSharedAccounts) return uniqueUsers();
+  if (hostedUsersLoaded && !force) return hostedUsersCache;
+  const { response, data } = await getJson("/api/admin-users");
+  if (!response.ok || !Array.isArray(data?.users)) {
+    throw new Error(adminApiFailureMessage(response, data, "Could not load shared users."));
+  }
+  hostedUsersCache = data.users.map(ensureAccessFields);
+  hostedUsersLoaded = true;
+  return hostedUsersCache;
+}
+
 function selectedAdminCountries() {
   return [...document.querySelectorAll('input[name="adminCreateCountry"]:checked')].map((input) => input.value);
 }
@@ -209,6 +239,9 @@ function formatDate(value) {
 }
 
 function uniqueUsers() {
+  if (usesHostedSharedAccounts) {
+    return hostedUsersCache.map((user) => ensureAccessFields(user));
+  }
   const storedUsers = readJson(usersStorageKey, []);
   const currentUser = readJson("dividendProfileUser", null);
   const byKey = new Map();
@@ -294,7 +327,7 @@ async function createUserFromAdmin() {
   const username = adminCreateUsername.value.trim();
   const email = adminCreateEmail.value.trim();
   const countries = selectedAdminCountries();
-  const users = uniqueUsers();
+  const users = usesHostedSharedAccounts ? await loadUsers() : uniqueUsers();
 
   if (!countries.length) {
     adminCreateUserMessage.textContent = "Choose at least one country for this user.";
@@ -321,27 +354,45 @@ async function createUserFromAdmin() {
     return;
   }
 
-  const now = new Date();
-  const user = {
-    username,
-    email,
-    passwordHash: await hashPassword(adminCreatePassword.value),
-    countries,
-    visibleMarkets: countries,
-    createdAt: now.toISOString(),
-    createdByAdminAt: now.toISOString(),
-    planType: "Free trial",
-    accessDaysGranted: freeTrialDays,
-    accessStartedAt: now.toISOString(),
-    paidUntil: addDays(now, freeTrialDays).toISOString(),
-    paymentConfirmed: false,
-    signInCount: 0
-  };
-
-  persistUsers([...users, user]);
+  if (usesHostedSharedAccounts) {
+    const { response, data } = await postJson("/api/admin-user-action", {
+      action: "createUser",
+      username,
+      email,
+      passwordHash: await hashPassword(adminCreatePassword.value),
+      countries
+    });
+    if (!response.ok || !data?.ok) {
+      adminCreateUserMessage.textContent = adminApiFailureMessage(
+        response,
+        data,
+        "Could not create this shared user."
+      );
+      return;
+    }
+    hostedUsersLoaded = false;
+  } else {
+    const now = new Date();
+    const user = {
+      username,
+      email,
+      passwordHash: await hashPassword(adminCreatePassword.value),
+      countries,
+      visibleMarkets: countries,
+      createdAt: now.toISOString(),
+      createdByAdminAt: now.toISOString(),
+      planType: "Free trial",
+      accessDaysGranted: freeTrialDays,
+      accessStartedAt: now.toISOString(),
+      paidUntil: addDays(now, freeTrialDays).toISOString(),
+      paymentConfirmed: false,
+      signInCount: 0
+    };
+    persistUsers([...users, user]);
+  }
   adminCreateUserForm.reset();
   adminCreateUserMessage.textContent = "User created successfully.";
-  renderUsers();
+  await renderUsers(true);
 }
 
 function planSelect(user) {
@@ -427,8 +478,16 @@ function openMailClientForUsers() {
   window.location.href = mailto;
 }
 
-function renderUsers() {
-  const users = uniqueUsers();
+async function renderUsers(force = false) {
+  let users = [];
+  try {
+    users = usesHostedSharedAccounts ? await loadUsers(force) : uniqueUsers();
+  } catch (error) {
+    if (adminGateMessage) adminGateMessage.textContent = error.message || "Could not load admin users.";
+    adminEmptyState.hidden = false;
+    adminUsersTable.innerHTML = "";
+    return;
+  }
   adminUserCount.textContent = `${users.length} ${users.length === 1 ? "user" : "users"}`;
   adminEmptyState.hidden = users.length > 0;
   renderSummary(users);
@@ -456,59 +515,86 @@ function renderUsers() {
   `).join("");
 }
 
-function grantAccess(email, planKey, customDays = 30) {
+async function grantAccess(email, planKey, customDays = 30) {
   const plan = planOptions[planKey] || planOptions.month;
   const parsedDays = Number(customDays);
   const adjustedDayCount = Number.isFinite(parsedDays) ? Math.max(0, parsedDays) : Math.max(0, Number(plan.days || 30));
-  const grantedDays = planKey === "lifetime"
-    ? Infinity
-    : adjustedDayCount;
-  const users = uniqueUsers().map((user) => {
-    if (normalize(user.email) !== normalize(email)) return user;
-    const now = new Date();
-    const planLabel = planKey === "lifetime"
-      ? "Lifetime"
-      : plan.label;
-    return {
-      ...user,
-      isLocked: false,
-      lockedAt: "",
-      lockedByAdminAt: "",
-      lockReason: "",
-      planType: planLabel,
-      accessDaysGranted: grantedDays === Infinity ? 999999 : grantedDays,
-      accessStartedAt: now.toISOString(),
-      paidUntil: grantedDays === Infinity ? "9999-12-31T23:59:59.000Z" : addDays(now, grantedDays).toISOString(),
-      paymentConfirmed: planKey !== "trial",
-      paymentConfirmedAt: now.toISOString()
-    };
-  });
-  persistUsers(users);
-  renderUsers();
+  if (usesHostedSharedAccounts) {
+    const { response, data } = await postJson("/api/admin-user-action", {
+      action: "grantAccess",
+      email,
+      planKey,
+      customDays: adjustedDayCount
+    });
+    if (!response.ok || !data?.ok) {
+      window.alert(adminApiFailureMessage(response, data, "Could not update this user's access."));
+      return;
+    }
+    hostedUsersLoaded = false;
+  } else {
+    const grantedDays = planKey === "lifetime"
+      ? Infinity
+      : adjustedDayCount;
+    const users = uniqueUsers().map((user) => {
+      if (normalize(user.email) !== normalize(email)) return user;
+      const now = new Date();
+      const planLabel = planKey === "lifetime"
+        ? "Lifetime"
+        : plan.label;
+      return {
+        ...user,
+        isLocked: false,
+        lockedAt: "",
+        lockedByAdminAt: "",
+        lockReason: "",
+        planType: planLabel,
+        accessDaysGranted: grantedDays === Infinity ? 999999 : grantedDays,
+        accessStartedAt: now.toISOString(),
+        paidUntil: grantedDays === Infinity ? "9999-12-31T23:59:59.000Z" : addDays(now, grantedDays).toISOString(),
+        paymentConfirmed: planKey !== "trial",
+        paymentConfirmedAt: now.toISOString()
+      };
+    });
+    persistUsers(users);
+  }
+  await renderUsers(true);
 }
 
-function setUserLocked(email, shouldLock) {
-  const now = new Date().toISOString();
-  const users = uniqueUsers().map((user) => {
-    if (normalize(user.email) !== normalize(email)) return user;
-    return {
-      ...user,
-      isLocked: shouldLock,
-      lockedAt: shouldLock ? now : "",
-      lockedByAdminAt: shouldLock ? now : "",
-      unlockedAt: shouldLock ? "" : now,
-      lockReason: shouldLock ? "Account unavailable" : ""
-    };
-  });
-  persistUsers(users);
+async function setUserLocked(email, shouldLock) {
+  if (usesHostedSharedAccounts) {
+    const { response, data } = await postJson("/api/admin-user-action", {
+      action: "setLockState",
+      email,
+      shouldLock
+    });
+    if (!response.ok || !data?.ok) {
+      window.alert(adminApiFailureMessage(response, data, "Could not update this user's lock state."));
+      return;
+    }
+    hostedUsersLoaded = false;
+  } else {
+    const now = new Date().toISOString();
+    const users = uniqueUsers().map((user) => {
+      if (normalize(user.email) !== normalize(email)) return user;
+      return {
+        ...user,
+        isLocked: shouldLock,
+        lockedAt: shouldLock ? now : "",
+        lockedByAdminAt: shouldLock ? now : "",
+        unlockedAt: shouldLock ? "" : now,
+        lockReason: shouldLock ? "Account unavailable" : ""
+      };
+    });
+    persistUsers(users);
 
-  const currentUser = readJson("dividendProfileUser", null);
-  if (shouldLock && normalize(currentUser?.email) === normalize(email)) {
-    localStorage.setItem("dividendAccessMessage", "This account is unavailable. Contact support for help.");
-    localStorage.removeItem("dividendProfileUser");
+    const currentUser = readJson("dividendProfileUser", null);
+    if (shouldLock && normalize(currentUser?.email) === normalize(email)) {
+      localStorage.setItem("dividendAccessMessage", "This account is unavailable. Contact support for help.");
+      localStorage.removeItem("dividendProfileUser");
+    }
   }
 
-  renderUsers();
+  await renderUsers(true);
 }
 
 async function setUserPassword(email, password) {
@@ -516,20 +602,33 @@ async function setUserPassword(email, password) {
     window.alert("Enter a new password with at least 6 characters.");
     return;
   }
-  const now = new Date().toISOString();
   const passwordHash = await hashPassword(password);
-  const users = uniqueUsers().map((user) => {
-    if (normalize(user.email) !== normalize(email)) return user;
-    return {
-      ...user,
-      passwordHash,
-      passwordChangedByAdminAt: now,
-      lastPasswordResetAt: now
-    };
-  });
-  persistUsers(users);
+  if (usesHostedSharedAccounts) {
+    const { response, data } = await postJson("/api/admin-user-action", {
+      action: "setPassword",
+      email,
+      passwordHash
+    });
+    if (!response.ok || !data?.ok) {
+      window.alert(adminApiFailureMessage(response, data, "Could not change this user's password."));
+      return;
+    }
+    hostedUsersLoaded = false;
+  } else {
+    const now = new Date().toISOString();
+    const users = uniqueUsers().map((user) => {
+      if (normalize(user.email) !== normalize(email)) return user;
+      return {
+        ...user,
+        passwordHash,
+        passwordChangedByAdminAt: now,
+        lastPasswordResetAt: now
+      };
+    });
+    persistUsers(users);
+  }
   window.alert("Password updated for this user.");
-  renderUsers();
+  await renderUsers(true);
 }
 
 function csvEscape(value) {
@@ -537,10 +636,11 @@ function csvEscape(value) {
 }
 
 function downloadUsersCsv() {
+  const users = uniqueUsers();
   const rows = [
     ["Username", "Email", "Plan", "Access status", "Days left", "Registered", "Last sign in", "Sign-ins", "Last seen"]
   ];
-  uniqueUsers().forEach((user) => {
+  users.forEach((user) => {
     rows.push([
       user.username || "Investor",
       user.email || "",
@@ -591,14 +691,14 @@ adminMessageRecipients?.addEventListener("change", () => {
 });
 
 adminUsersTable?.addEventListener("click", async (event) => {
-  const grantButton = event.target.closest(".grant-access-btn");
-  if (grantButton) {
-    const email = grantButton.dataset.email || "";
-    const select = grantButton.closest(".grant-access")?.querySelector(".admin-plan-select");
-    const customDays = grantButton.closest(".grant-access")?.querySelector(".admin-custom-days")?.value || 30;
-    grantAccess(email, select?.value || "month", customDays);
-    return;
-  }
+    const grantButton = event.target.closest(".grant-access-btn");
+    if (grantButton) {
+      const email = grantButton.dataset.email || "";
+      const select = grantButton.closest(".grant-access")?.querySelector(".admin-plan-select");
+      const customDays = grantButton.closest(".grant-access")?.querySelector(".admin-custom-days")?.value || 30;
+      await grantAccess(email, select?.value || "month", customDays);
+      return;
+    }
 
   const passwordButton = event.target.closest(".set-password-btn");
   if (passwordButton) {
@@ -608,11 +708,11 @@ adminUsersTable?.addEventListener("click", async (event) => {
     return;
   }
 
-  const lockButton = event.target.closest(".lock-user-btn");
-  if (!lockButton) return;
-  const email = lockButton.dataset.email || "";
-  const shouldLock = lockButton.dataset.locked !== "true";
-  setUserLocked(email, shouldLock);
+    const lockButton = event.target.closest(".lock-user-btn");
+    if (!lockButton) return;
+    const email = lockButton.dataset.email || "";
+    const shouldLock = lockButton.dataset.locked !== "true";
+    await setUserLocked(email, shouldLock);
 });
 adminUsersTable?.addEventListener("change", (event) => {
   const select = event.target.closest(".admin-plan-select");

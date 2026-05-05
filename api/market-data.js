@@ -1,3 +1,6 @@
+const { fetchPublicDividendPageData } = require("../lib/stockanalysis-dividends");
+const { fetchNigeriaPublicDividendData } = require("../lib/nigeria-public-dividends");
+
 const quoteSuffix = {
   US: "us",
   UK: "uk",
@@ -260,6 +263,14 @@ async function fetchYahooDividendEvents(ticker, market) {
 }
 
 async function fetchDividendData(ticker, market) {
+  if (market === "Nigeria") {
+    const nigeriaPublic = await fetchNigeriaPublicDividendData(ticker, ticker).catch(() => null);
+    if (nigeriaPublic?.nextDeclared || nigeriaPublic?.history?.length) return nigeriaPublic;
+  }
+
+  const scraped = await fetchPublicDividendPageData(ticker, market, ticker).catch(() => null);
+  if (scraped?.nextDeclared || scraped?.history?.length) return scraped;
+
   const symbols = uniqueSymbols(yahooSymbol(ticker, market), ticker);
   const providerFetchers = [
     fetchFmpDividends,
@@ -297,6 +308,7 @@ async function handler(request, response) {
   const symbolsParam = request.query.symbols || "";
   const interval = request.query.interval || "d";
   const includeDividends = request.query.dividends === "1" || request.query.verifyDividends === "1";
+  const dividendsOnly = request.query.dividendsOnly === "1";
   const inputs = String(symbolsParam).split(",").map((item) => {
     const [ticker, market] = item.split(":");
     return { ticker, market };
@@ -308,26 +320,32 @@ async function handler(request, response) {
     const symbol = stooqSymbol(ticker, market);
     let quote = null;
     let history = [];
-    if (symbol) {
+    if (!dividendsOnly && symbol) {
       quote = await fetchQuote(symbol).catch(() => null);
       history = await fetchHistory(symbol, interval).catch(() => []);
     }
-    if (!quote) {
+    if (!dividendsOnly && !quote) {
       quote = await fetchYahooChart(ticker, market, interval).catch(() => null);
       history = quote?.history || history;
     }
-    if (!quote) return;
     const dividend = includeDividends ? await fetchDividendData(ticker, market).catch(() => null) : null;
-    quotes[`${market}:${ticker}`] = { ...quote, history, dividend };
+    if (!quote && !dividend) return;
+    quotes[`${market}:${ticker}`] = dividendsOnly
+      ? { dividend }
+      : { ...quote, history, dividend };
   }));
 
   response.status(200).json({
     updatedAt: new Date().toISOString(),
-    provider: includeDividends && verifyDividends
-      ? "Stooq/Yahoo delayed quotes plus configured dividend-data providers"
-      : includeDividends
-        ? "Stooq/Yahoo delayed quotes plus free Yahoo dividend-event history"
-        : "Stooq/Yahoo delayed quotes",
+    provider: dividendsOnly
+      ? (includeDividends && verifyDividends
+        ? "Live dividend sources plus configured dividend-data providers"
+        : "Live dividend sources plus free Yahoo dividend-event history")
+      : includeDividends && verifyDividends
+        ? "Stooq/Yahoo delayed quotes plus configured dividend-data providers"
+        : includeDividends
+          ? "Stooq/Yahoo delayed quotes plus free Yahoo dividend-event history"
+          : "Stooq/Yahoo delayed quotes",
     quotes
   });
 }
