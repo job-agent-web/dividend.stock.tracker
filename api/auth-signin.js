@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { issueHostedOtp } = require("../lib/_otp-service");
+const { sendSupabaseMagicLink } = require("../lib/_otp-service");
 const {
   ensureAccessFields,
   findUserByIdentity,
@@ -38,6 +38,13 @@ function daysLeftForUser(user) {
   return Math.max(0, Math.ceil((until - new Date()) / 86400000));
 }
 
+function requestOrigin(request) {
+  const origin = request.headers.origin || "";
+  if (origin) return origin;
+  const host = request.headers.host || "";
+  return host ? `https://${host}` : "";
+}
+
 module.exports = async function handler(request, response) {
   if (request.method !== "POST") {
     json(response, 405, { ok: false, message: "Method not allowed." });
@@ -67,26 +74,33 @@ module.exports = async function handler(request, response) {
     }
 
     if (accessUser.otpVerified === false) {
-      const otp = await issueHostedOtp(accessUser);
-      if (!otp.ok) {
-        json(response, 503, { ok: false, message: otp.reason || otp.message || "OTP could not be sent right now." });
+      const magicLink = await sendSupabaseMagicLink({
+        email: accessUser.email,
+        username: accessUser.username,
+        origin: requestOrigin(request)
+      });
+      if (!magicLink.sent) {
+        json(response, 503, { ok: false, message: magicLink.reason || "Magic link could not be sent right now." });
         return;
       }
       const challenge = createSigninChallenge();
       const updated = await updateUserByEmail(accessUser.email, {
         otpVerified: false,
-        otpHash: otp.otpHash,
-        otpIssuedAt: otp.otpIssuedAt,
-        otpExpiresAt: otp.otpExpiresAt,
-        otpDelivery: otp.otpDelivery,
+        otpHash: "",
+        otpIssuedAt: new Date().toISOString(),
+        otpExpiresAt: "",
+        otpDelivery: "magic-link",
+        magicLinkIssuedAt: new Date().toISOString(),
+        magicLinkRedirectTo: magicLink.redirectTo || "",
         signInChallengeHash: challengeHash(challenge),
         signInChallengeIssuedAt: new Date().toISOString()
       });
       json(response, 200, {
         ok: true,
-        requiresOtp: true,
+        magicLink: true,
+        requiresOtp: false,
         challenge,
-        message: "Your email is not verified. A new OTP has been generated.",
+        message: "Your email is not verified. Check your inbox and click the verification link.",
         user: publicUser(updated)
       });
       return;

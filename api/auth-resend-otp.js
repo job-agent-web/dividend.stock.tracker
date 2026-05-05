@@ -1,4 +1,4 @@
-const { issueHostedOtp } = require("../lib/_otp-service");
+const { sendSupabaseMagicLink } = require("../lib/_otp-service");
 const {
   findUserByIdentity,
   publicUser,
@@ -20,6 +20,13 @@ async function readBody(request) {
   return text ? JSON.parse(text) : {};
 }
 
+function requestOrigin(request) {
+  const origin = request.headers.origin || "";
+  if (origin) return origin;
+  const host = request.headers.host || "";
+  return host ? `https://${host}` : "";
+}
+
 module.exports = async function handler(request, response) {
   if (request.method !== "POST") {
     json(response, 405, { ok: false, message: "Method not allowed." });
@@ -39,21 +46,28 @@ module.exports = async function handler(request, response) {
       json(response, 404, { ok: false, message: "Create or find your account before requesting another OTP." });
       return;
     }
-    const otp = await issueHostedOtp(user);
-    if (!otp.ok) {
-      json(response, 503, { ok: false, message: otp.reason || otp.message || "OTP could not be sent right now." });
+    const magicLink = await sendSupabaseMagicLink({
+      email: user.email,
+      username: user.username,
+      origin: requestOrigin(request)
+    });
+    if (!magicLink.sent) {
+      json(response, 503, { ok: false, message: magicLink.reason || "Magic link could not be sent right now." });
       return;
     }
     const updated = await updateUserByEmail(user.email, {
       otpVerified: false,
-      otpHash: otp.otpHash,
-      otpIssuedAt: otp.otpIssuedAt,
-      otpExpiresAt: otp.otpExpiresAt,
-      otpDelivery: otp.otpDelivery
+      otpHash: "",
+      otpIssuedAt: new Date().toISOString(),
+      otpExpiresAt: "",
+      otpDelivery: "magic-link",
+      magicLinkIssuedAt: new Date().toISOString(),
+      magicLinkRedirectTo: magicLink.redirectTo || ""
     });
     json(response, 200, {
       ok: true,
-      message: "A new OTP has been generated. Enter it before it expires.",
+      magicLink: true,
+      message: "A new verification link has been sent. Open it from your email before it expires.",
       user: publicUser(updated)
     });
   } catch (error) {

@@ -1,13 +1,14 @@
 const crypto = require("crypto");
 const {
   ensureAccessFields,
+  findUserByEmail,
   findUserByIdentity,
   issueSession,
   publicUser,
   supabaseConfigured,
   updateUserByEmail
 } = require("../lib/_shared-user-store");
-const { hashOtp } = require("../lib/_otp-service");
+const { getSupabaseUserFromAccessToken, hashOtp } = require("../lib/_otp-service");
 
 function json(response, status, payload) {
   response.setHeader("content-type", "application/json; charset=utf-8");
@@ -56,6 +57,54 @@ module.exports = async function handler(request, response) {
     const code = String(body.code || "").trim();
     const mode = String(body.mode || "signup").trim().toLowerCase();
     const challenge = String(body.challenge || "").trim();
+
+    if (mode === "magiclink") {
+      const accessToken = String(body.accessToken || "").trim();
+      if (!accessToken) {
+        json(response, 400, { ok: false, message: "Magic link token is missing." });
+        return;
+      }
+      const supabaseUser = await getSupabaseUserFromAccessToken(accessToken);
+      const email = String(supabaseUser?.email || "").trim().toLowerCase();
+      const user = await findUserByEmail(email);
+      if (!user) {
+        json(response, 404, { ok: false, message: "This email is verified, but no tracker account was found." });
+        return;
+      }
+      const verified = await updateUserByEmail(user.email, {
+        otpVerified: true,
+        otpHash: "",
+        otpVerifiedAt: new Date().toISOString(),
+        signInChallengeHash: "",
+        signInChallengeIssuedAt: ""
+      });
+      const accessUser = ensureAccessFields(verified);
+      if (daysLeftForUser(accessUser) <= 0) {
+        json(response, 403, {
+          ok: false,
+          expired: true,
+          message: "Email verified, but your access has expired. Please choose a plan below.",
+          user: publicUser(accessUser)
+        });
+        return;
+      }
+      const { user: signedIn, sessionToken } = await issueSession({
+        ...accessUser,
+        lastSignedInAt: new Date().toISOString(),
+        lastSeenAt: new Date().toISOString(),
+        lastActivityAt: new Date().toISOString(),
+        signInCount: Number(accessUser.signInCount || 0) + 1
+      });
+      json(response, 200, {
+        ok: true,
+        magicLink: true,
+        message: "Email verified. Opening your tracker...",
+        sessionToken,
+        user: publicUser(signedIn)
+      });
+      return;
+    }
+
     const user = await findUserByIdentity(identity);
 
     if (!user) {

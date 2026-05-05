@@ -482,6 +482,25 @@ function showSignupOtpGate(user, code) {
   signupOtpForm?.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
+function showSignupMagicLinkNotice(user, message) {
+  pendingSignupEmail = user.email;
+  pendingSignupUser = user;
+  if (signupOtpForm) signupOtpForm.hidden = true;
+  if (signupMessage) {
+    signupMessage.classList.remove("error");
+    signupMessage.textContent = message || "Check your email and click the verification link to activate your account.";
+  }
+}
+
+function showSigninMagicLinkNotice(user, message) {
+  pendingSigninUser = user;
+  if (signinOtpForm) signinOtpForm.hidden = true;
+  if (signinMessage) {
+    signinMessage.classList.remove("error");
+    signinMessage.textContent = message || "Check your email and click the verification link to open your tracker.";
+  }
+}
+
 function replaceRegisteredUser(updatedUser) {
   const users = registeredUsers();
   const email = normalizeUserValue(updatedUser.email);
@@ -580,10 +599,16 @@ signupForm?.addEventListener("submit", async (event) => {
     if (!response.ok || !data?.ok || !data?.user) {
       signupMessage.classList.add("error");
       signupMessage.textContent = data?.message || "Could not create your account right now.";
+      if (data?.duplicateField === "username") signupUsername.focus();
+      if (data?.duplicateField === "email") signupEmail.focus();
       return;
     }
     pendingSignupEmail = data.user.email;
     pendingSignupUser = data.user;
+    if (data.magicLink) {
+      showSignupMagicLinkNotice(data.user, data.message);
+      return;
+    }
     showSignupOtpGate(data.user, "");
     return;
   }
@@ -643,6 +668,12 @@ signinForm?.addEventListener("submit", async (event) => {
       pendingSigninUser = { ...data.user, signInChallenge: data.challenge || "" };
       showSigninOtpGate(pendingSigninUser, "");
       signinMessage.textContent = data.message || "Your email is not verified. A new OTP has been generated.";
+      return;
+    }
+    if (data.magicLink && data.user) {
+      pendingSigninPassword = password;
+      pendingSigninUser = data.user;
+      showSigninMagicLinkNotice(data.user, data.message);
       return;
     }
     if (data.user && data.sessionToken) {

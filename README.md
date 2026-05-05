@@ -69,16 +69,23 @@ The app also calls `/api/ipo-calendar` for upcoming IPOs. Free IPO sources are b
 
 The repository includes `.github/workflows/refresh-dividend-data.yml`. Once GitHub Actions is enabled on the repo, it runs every 6 hours and can also be started manually from the GitHub Actions tab. The workflow runs `npm run update:all-dividends`, commits any changed scraped dividend files, and pushes them back to the repo. If Vercel is connected to the repo, that push triggers a redeploy so the hosted site automatically picks up the fresher dividend snapshot files.
 
-## Hosted OTP Emails
+## Hosted Email Verification
 
-The sign-up and sign-in OTP flow calls `/api/send-otp` on hosted deployments. To send real OTP emails on Vercel, add these environment variables:
+Hosted sign-up now uses Supabase Auth magic links instead of Resend OTPs. This avoids the Resend testing-only sender limit while still requiring users to verify their email before opening the tracker.
 
-- `RESEND_API_KEY` - your Resend API key
-- `OTP_FROM_EMAIL` - optional verified sender, defaults to `Dividend Stock Tracker <onboarding@resend.dev>` if not set
-- `RESEND_FROM_EMAIL` - optional fallback sender name used by the Job Agent project
+Add these Vercel environment variables:
+
+- `SUPABASE_URL` - your Supabase project URL
+- `SUPABASE_SERVICE_ROLE_KEY` - the server-side service role key for that project
+- `SUPABASE_ANON_KEY` - optional, but recommended for Supabase Auth email calls
+- `SUPABASE_MAGIC_LINK_REDIRECT_URL` - set this to `https://your-site.vercel.app/auth-callback.html`
 - `APP_NAME` - optional email heading
 
-If the app is opened locally with `file://`, the OTP appears on the page as a local test code. Hosted deployments do not show fallback OTPs: users must receive the OTP by email through Resend before they can verify or sign in. Use `dividendstocktracker@gmail.com` as the reply-to/support inbox, and use a Resend-allowed sender address for `OTP_FROM_EMAIL`.
+In Supabase, also add the same callback URL under Authentication redirect URLs:
+
+- `https://your-site.vercel.app/auth-callback.html`
+
+If the site is opened locally with `file://`, it still uses the local test OTP path. Hosted deployments use Supabase magic links for email verification.
 
 ## Shared Accounts Across Phone And Desktop
 
@@ -93,6 +100,7 @@ Add these Vercel environment variables for the project that serves your live sit
 
 - `SUPABASE_URL` - your Supabase project URL
 - `SUPABASE_SERVICE_ROLE_KEY` - the server-side service role key for that project
+- `SUPABASE_ANON_KEY` - optional, but recommended for magic-link email verification
 - `SUPABASE_USERS_TABLE` - optional, defaults to `dividend_users`
 
 Then open the Supabase SQL editor and run:
