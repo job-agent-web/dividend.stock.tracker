@@ -1,11 +1,7 @@
-﻿Upload the contents of this folder to your GitHub repo.
+﻿1. Upload the contents of this folder to your GitHub repo.
+2. Delete the 5 old api/admin-*.js files listed in DELETE_THESE_FROM_GITHUB.txt.
+3. Commit changes.
+4. Redeploy Vercel.
 
-Important:
-After uploading, DELETE these old files from your GitHub repo if they still exist:
-- api/_admin-session.js
-- api/_otp-service.js
-- api/_shared-user-store.js
-
-They must live in lib/ now, not api/, otherwise Vercel may try to deploy them as serverless functions.
-
-After GitHub is updated, redeploy Vercel.
+The merged admin route now lives at api/admin.js.
+vercel.json rewrites old admin URLs to the new route so cached pages keep working.
