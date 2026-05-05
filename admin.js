@@ -96,7 +96,7 @@ function adminApiFailureMessage(response, data, fallback) {
 
 async function checkAdminSession() {
   try {
-    const response = await fetch("/api/admin-session", {
+    const response = await fetch("/api/admin?action=session", {
       method: "GET",
       cache: "no-store",
       credentials: "same-origin"
@@ -129,7 +129,7 @@ async function loginAdminWithPin() {
   const pin = adminPin?.value || "";
   if (adminGateMessage) adminGateMessage.textContent = "Checking secure admin access...";
   try {
-    const { response, data } = await postJson("/api/admin-login", { pin });
+    const { response, data } = await postJson("/api/admin?action=login", { pin });
     if (!response.ok || !data?.ok) {
       if (adminGateMessage) {
         adminGateMessage.textContent = adminApiFailureMessage(
@@ -151,7 +151,7 @@ async function loginAdminWithPin() {
 
 async function logoutAdmin() {
   try {
-    await fetch("/api/admin-logout", {
+    await fetch("/api/admin?action=logout", {
       method: "POST",
       cache: "no-store",
       credentials: "same-origin"
@@ -182,7 +182,7 @@ async function getJson(url) {
 async function loadUsers(force = false) {
   if (!usesHostedSharedAccounts) return uniqueUsers();
   if (hostedUsersLoaded && !force) return hostedUsersCache;
-  const { response, data } = await getJson("/api/admin-users");
+  const { response, data } = await getJson("/api/admin?action=users");
   if (!response.ok || !Array.isArray(data?.users)) {
     throw new Error(adminApiFailureMessage(response, data, "Could not load shared users."));
   }
@@ -355,8 +355,8 @@ async function createUserFromAdmin() {
   }
 
   if (usesHostedSharedAccounts) {
-    const { response, data } = await postJson("/api/admin-user-action", {
-      action: "createUser",
+    const { response, data } = await postJson("/api/admin?action=user-action", {
+      type: "createUser",
       username,
       email,
       passwordHash: await hashPassword(adminCreatePassword.value),
@@ -520,8 +520,8 @@ async function grantAccess(email, planKey, customDays = 30) {
   const parsedDays = Number(customDays);
   const adjustedDayCount = Number.isFinite(parsedDays) ? Math.max(0, parsedDays) : Math.max(0, Number(plan.days || 30));
   if (usesHostedSharedAccounts) {
-    const { response, data } = await postJson("/api/admin-user-action", {
-      action: "grantAccess",
+    const { response, data } = await postJson("/api/admin?action=user-action", {
+      type: "grantAccess",
       email,
       planKey,
       customDays: adjustedDayCount
@@ -562,8 +562,8 @@ async function grantAccess(email, planKey, customDays = 30) {
 
 async function setUserLocked(email, shouldLock) {
   if (usesHostedSharedAccounts) {
-    const { response, data } = await postJson("/api/admin-user-action", {
-      action: "setLockState",
+    const { response, data } = await postJson("/api/admin?action=user-action", {
+      type: "setLockState",
       email,
       shouldLock
     });
@@ -604,8 +604,8 @@ async function setUserPassword(email, password) {
   }
   const passwordHash = await hashPassword(password);
   if (usesHostedSharedAccounts) {
-    const { response, data } = await postJson("/api/admin-user-action", {
-      action: "setPassword",
+    const { response, data } = await postJson("/api/admin?action=user-action", {
+      type: "setPassword",
       email,
       passwordHash
     });

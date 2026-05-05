@@ -3,5 +3,12 @@
     "api/*.js": {
       "maxDuration": 10
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/api/admin-login", "destination": "/api/admin?action=login" },
+    { "source": "/api/admin-session", "destination": "/api/admin?action=session" },
+    { "source": "/api/admin-logout", "destination": "/api/admin?action=logout" },
+    { "source": "/api/admin-users", "destination": "/api/admin?action=users" },
+    { "source": "/api/admin-user-action", "destination": "/api/admin?action=user-action" }
+  ]
 }
