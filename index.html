@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=1280, initial-scale=1">
+    <title>Dividend Stock Tracker</title>
+    <link rel="stylesheet" href="styles.css?v=private-admin">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow" id="headerGreeting">Welcome</p>
+        <h1>Dividend Stock Tracker</h1>
+      </div>
+      <div class="topbar-actions">
+        <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false">
+          <span class="theme-icon" aria-hidden="true">☾</span>
+          <span id="themeToggleText">Dark mode</span>
+        </button>
+        <button class="lite-toggle" id="liteModeToggle" type="button" aria-pressed="false">
+          <span id="liteModeToggleText">Lite mode</span>
+        </button>
+        <button class="logout-button" id="logoutButton" type="button">Log out</button>
+      </div>
+      <div class="topbar-panes" aria-label="Quick tools">
+        <details class="report-pane topbar-pane">
+          <summary>Compare Stocks</summary>
+          <div class="topbar-pane-panel">
+            <div class="compare-controls">
+              <select class="compare-select" aria-label="Compare stock 1"></select>
+              <select class="compare-select" aria-label="Compare stock 2"></select>
+              <select class="compare-select" aria-label="Compare stock 3"></select>
+              <select class="compare-select" aria-label="Compare stock 4"></select>
+            </div>
+            <div id="comparePane" class="utility-list"></div>
+          </div>
+        </details>
+
+        <details class="report-pane topbar-pane">
+          <summary>Currency Converter</summary>
+          <div class="topbar-pane-panel">
+            <div class="converter-form">
+              <input id="converterAmount" type="number" min="0" step="0.01" value="1000" aria-label="Amount to convert">
+              <select id="converterFrom" aria-label="From currency"></select>
+              <span class="converter-to-label" aria-hidden="true">to</span>
+              <select id="converterTo" aria-label="To currency"></select>
+            </div>
+            <div id="converterResult" class="utility-list"></div>
+          </div>
+        </details>
+
+        <details class="report-pane topbar-pane">
+          <summary>Beginner Mode</summary>
+          <div class="topbar-pane-panel">
+            <div id="beginnerPane" class="utility-list"></div>
+          </div>
+        </details>
+
+        <details class="report-pane topbar-pane">
+          <summary>Stock News</summary>
+          <div class="topbar-pane-panel">
+            <div id="newsPane" class="utility-list"></div>
+          </div>
+        </details>
+
+        <details class="report-pane topbar-pane">
+          <summary>My Watchlist</summary>
+          <div class="topbar-pane-panel">
+            <div id="watchlistPane" class="utility-list"></div>
+          </div>
+        </details>
+
+        <details class="report-pane topbar-pane">
+          <summary>Dividend Calendar</summary>
+          <div class="topbar-pane-panel">
+            <div id="dividendCalendarPane" class="utility-list"></div>
+          </div>
+        </details>
+
+        <div class="lite-market-slot" id="liteMarketSlot" hidden></div>
+
+        <details class="report-pane topbar-pane lite-keep">
+          <summary><span>Dividend Alerts</span><span id="dividendAlertBadge" class="alert-count-badge" hidden>0</span></summary>
+          <div class="topbar-pane-panel">
+            <div id="alertsPane" class="utility-list"></div>
+          </div>
+        </details>
+
+        <label class="lite-search-field lite-only-pane">
+          <span>Search stock</span>
+          <input id="liteSearchInput" type="search" placeholder="Ticker, company, platform">
+        </label>
+
+        <details class="report-pane topbar-pane" id="portfolioTrackerPane">
+          <summary>Portfolio Tracker</summary>
+          <div class="topbar-pane-panel">
+            <div class="portfolio-form">
+              <label>
+                Shares owned
+                <input id="portfolioShares" type="number" min="0" step="0.01" placeholder="0">
+              </label>
+              <label>
+                <span>Average buy price</span>
+                <span class="currency-input">
+                  <input id="portfolioPrice" type="number" min="0" step="0.01" placeholder="0">
+                  <small id="portfolioPriceCurrency" class="currency-badge">--</small>
+                </span>
+              </label>
+              <button id="savePortfolio" class="tool-button" type="button">Save holding</button>
+              <button id="downloadPortfolio" class="tool-button" type="button">Download portfolio</button>
+            </div>
+            <div id="portfolioPane" class="utility-list"></div>
+          </div>
+        </details>
+      </div>
+    </header>
+
+    <main id="appMain">
+      <section class="controls" aria-label="Filters">
+        <details class="country-dropdown market-dropdown" id="marketDropdown">
+          <summary>
+            <span>Market</span>
+            <strong id="marketSummary">All selected markets</strong>
+          </summary>
+          <div class="country-menu" id="marketMenu" aria-label="Choose visible markets"></div>
+        </details>
+        <label>
+          Category
+          <select id="categoryFilter">
+            <option value="all">All categories</option>
+          </select>
+        </label>
+        <label>
+          Signal
+          <select id="signalFilter">
+            <option value="all">All signals</option>
+            <option value="Buy">Buy</option>
+            <option value="Hold">Hold</option>
+            <option value="Sell">Sell</option>
+          </select>
+        </label>
+        <label class="search-field">
+          Search
+          <input id="searchInput" type="search" placeholder="Ticker, company, platform">
+        </label>
+        <button id="refreshPrices" class="refresh-button" type="button">Refresh live prices</button>
+      </section>
+
+      <section class="layout">
+        <aside class="left-rail">
+          <section class="stock-list" aria-label="Dividend stocks">
+            <div class="section-heading">
+              <div>
+                <h2>Stocks By Category</h2>
+                <span id="visibleCount">0 shown</span>
+              </div>
+              <div class="list-sort" aria-label="Stock list sorting">
+                <label>
+                  Sort
+                  <select id="sortField">
+                    <option value="name">Name</option>
+                    <option value="score">Buy score</option>
+                    <option value="yield">Yield</option>
+                    <option value="price">Price</option>
+                  </select>
+                </label>
+                <label>
+                  Order
+                  <select id="sortDirection">
+                    <option value="asc">Ascending</option>
+                    <option value="desc">Descending</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div id="stockList" class="stock-grid"></div>
+          </section>
+
+          <details class="youtube-learning report-pane" aria-label="YouTube learning channels">
+            <summary>YouTube Learning Channels</summary>
+            <div id="youtubeChannels" class="youtube-grid"></div>
+          </details>
+
+          <details class="ipo-learning report-pane" aria-label="Upcoming IPOs">
+            <summary>Upcoming IPOs</summary>
+            <div class="ipo-content">
+              <div id="ipoList" class="ipo-list"></div>
+              <div id="ipoInstructions" class="ipo-instructions"></div>
+            </div>
+          </details>
+
+          <details class="sec-nigeria-pane report-pane" id="secNigeriaPane" aria-label="SEC Nigeria dividends tracker" hidden>
+            <summary>SEC Nigeria - Dividends Tracker</summary>
+            <div class="sec-embed">
+              <a class="sec-link" href="https://eportal.sec.gov.ng/non-mandated" target="_blank" rel="noopener noreferrer">
+                Open SEC Nigeria dividends tracker in a new tab
+              </a>
+            </div>
+          </details>
+
+          <details class="uk-savings-pane report-pane" id="ukSavingsPane" aria-label="UK high-yield savings accounts" hidden>
+            <summary>High Yield Savings Accounts in the UK</summary>
+            <div id="ukSavingsList" class="savings-list"></div>
+          </details>
+
+          <section class="signal-legend report-pane" aria-label="Buy hold sell signal legend">
+            <h3>Signal Legend</h3>
+            <div class="legend-copy">
+              <div class="legend-row">
+                <span class="signal buy">Buy</span>
+                <p>The stock looks attractive on the rules-based checks, with a stronger mix of yield, safety, payout discipline, and overall value.</p>
+              </div>
+              <div class="legend-row">
+                <span class="signal hold">Hold</span>
+                <p>The stock may still be solid, but there is not currently a strong enough reason to buy more or sell immediately.</p>
+              </div>
+              <div class="legend-row">
+                <span class="signal sell">Sell</span>
+                <p>The stock currently shows weaker fundamentals, higher risk, stretched valuation, or a dividend profile that looks less attractive.</p>
+              </div>
+            </div>
+          </section>
+        </aside>
+
+        <section class="detail-panel" aria-live="polite">
+          <div class="detail-header">
+            <div>
+              <p id="detailMarket" class="eyebrow">Select a stock</p>
+              <h2 id="detailName">Dividend view</h2>
+              <p id="detailTicker" class="muted">Choose a stock to see price history, dividend dates, and platform options.</p>
+            </div>
+            <div class="detail-actions">
+              <button id="detailWatchStar" class="star-button" type="button" aria-pressed="false" aria-label="Add selected stock to watchlist">☆</button>
+              <button id="addToPortfolioButton" class="add-portfolio-button" type="button">Add to portfolio</button>
+              <span id="detailSignal" class="signal neutral">Hold</span>
+              <span id="watchlistToast" class="watchlist-toast" role="status" aria-live="polite" hidden>Added to watchlist</span>
+            </div>
+          </div>
+
+          <div class="chart-toolbar">
+            <h3>Price History</h3>
+            <div class="range-tabs" aria-label="Price history range">
+              <button type="button" class="range-tab" data-range="daily">Daily</button>
+              <button type="button" class="range-tab" data-range="weekly">Weekly</button>
+              <button type="button" class="range-tab active" data-range="monthly">Monthly</button>
+              <button type="button" class="range-tab" data-range="yearly">Yearly</button>
+              <button type="button" class="range-tab" data-range="5year">5 year</button>
+              <button type="button" class="range-tab" data-range="lifetime">All time</button>
+            </div>
+          </div>
+
+          <div class="chart-wrap">
+            <canvas id="priceChart" width="900" height="360" aria-label="Price history graph"></canvas>
+            <div id="chartTooltip" class="chart-tooltip" hidden></div>
+          </div>
+
+          <div class="metrics" id="metrics"></div>
+
+          <div class="insight-board report-button-board" aria-label="Stock report buttons">
+            <button class="report-open-button" type="button" data-report-pane="company" data-report-title="Company Details">Company Details</button>
+            <button class="report-open-button" type="button" data-report-pane="dividendHistory" data-report-title="Dividend History">Dividend History</button>
+            <button class="report-open-button" type="button" data-report-pane="buySell" data-report-title="Buy / Sell View">Buy / Sell View</button>
+            <button class="report-open-button" type="button" data-report-pane="dividendDates" data-report-title="Dividend Dates">Dividend Dates</button>
+            <button class="report-open-button" type="button" data-report-pane="earnings" data-report-title="Yearly Earnings Report">Yearly Earnings Report</button>
+            <button class="report-open-button" type="button" data-report-pane="platforms" data-report-title="Where To Buy">Where To Buy</button>
+          </div>
+
+          <div id="reportContentShelf" class="report-content-shelf" hidden>
+            <section class="report-content-card company-profile" data-report-content="company" hidden>
+              <div id="companyProfile" class="profile-grid"></div>
+            </section>
+
+            <section class="report-content-card dividend-history-pane" data-report-content="dividendHistory" hidden>
+              <div id="dividendHistoryPane" class="dividend-history-grid"></div>
+            </section>
+
+            <section class="report-content-card" data-report-content="buySell" hidden>
+              <ul id="reasonsList" class="reason-list"></ul>
+            </section>
+
+            <section class="report-content-card" data-report-content="dividendDates" hidden>
+              <div id="dividendDates" class="date-list"></div>
+            </section>
+
+            <section class="report-content-card" data-report-content="earnings" hidden>
+              <div id="earningsReport" class="date-list"></div>
+            </section>
+
+            <section class="report-content-card platform-pane" data-report-content="platforms" hidden>
+              <div id="platforms" class="platforms"></div>
+            </section>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <div id="reportPaneModal" class="contact-modal report-pane-modal" hidden>
+      <div class="contact-modal-card report-pane-modal-card" role="dialog" aria-modal="true" aria-labelledby="reportPaneModalTitle">
+        <div class="report-pane-modal-header">
+          <div>
+            <p class="eyebrow">Stock report</p>
+            <h3 id="reportPaneModalTitle">Company Details</h3>
+          </div>
+          <button id="closeReportPaneModal" class="ghost-button" type="button">Close</button>
+        </div>
+        <div id="reportPaneModalBody" class="report-pane-modal-body"></div>
+      </div>
+    </div>
+
+    <button id="contactUsFab" class="contact-us-fab" type="button">Contact Us</button>
+    <div id="contactUsModal" class="contact-modal" hidden>
+      <div class="contact-modal-card contact-us-card">
+        <p class="eyebrow">Contact Us</p>
+        <h3>Send a Message</h3>
+        <div class="contact-us-grid">
+          <label>
+            User name
+            <input id="contactUserName" type="text" placeholder="Your name" readonly>
+          </label>
+          <label>
+            Email
+            <input id="contactUserEmail" type="email" placeholder="name@example.com" readonly>
+          </label>
+          <label class="full-span">
+            Subject
+            <input id="contactSubject" type="text" placeholder="How can we help?">
+          </label>
+          <label class="full-span">
+            Message
+            <textarea id="contactMessage" rows="7" placeholder="Type your message here."></textarea>
+          </label>
+        </div>
+        <div class="contact-actions">
+          <button id="sendContactMessageBtn" class="primary-button" type="button">Send Message</button>
+          <button id="closeContactUsBtn" class="ghost-button" type="button">Close</button>
+        </div>
+        <div id="contactUsStatus" class="contact-status neutral">Your registered details will be prefilled where available.</div>
+      </div>
+    </div>
+
+    <div id="paymentModal" class="contact-modal payment-modal" hidden>
+      <div class="contact-modal-card payment-modal-card">
+        <p class="eyebrow">Access expired</p>
+        <h3>Your free week has ended</h3>
+        <p class="muted">Please choose a plan and contact admin. Access stays locked until admin confirms payment and grants days to your account.</p>
+        <div class="pricing-grid">
+          <article class="pricing-card">
+            <h4>1 Month</h4>
+            <p class="price-tag">30 days</p>
+          </article>
+          <article class="pricing-card">
+            <h4>3 Months</h4>
+            <p class="price-tag">90 days</p>
+          </article>
+          <article class="pricing-card featured">
+            <h4>6 Months</h4>
+            <p class="price-tag">183 days</p>
+          </article>
+          <article class="pricing-card featured">
+            <h4>1 Year</h4>
+            <p class="price-tag">365 days</p>
+          </article>
+        </div>
+        <div class="contact-actions">
+          <button id="paymentContactAdmin" class="primary-button" type="button">Contact admin</button>
+        </div>
+        <div id="paymentStatus" class="contact-status neutral">Admin must confirm payment before this profile can continue.</div>
+      </div>
+    </div>
+
+    <script src="online-dividend-universe.js?v=private-admin"></script>
+    <script src="nigeria-dividends.js?v=private-admin"></script>
+    <script src="nigeria-dividends-scraped.js?v=private-admin"></script>
+    <script src="market-dividends.js?v=private-admin"></script>
+    <script src="app.js?v=private-admin"></script>
+  </body>
+</html>

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin | Dividend Stock Tracker</title>
+    <link rel="stylesheet" href="styles.css?v=private-admin">
+  </head>
+  <body class="signup-page admin-page">
+    <section id="adminGate" class="signup-shell admin-gate-shell">
+      <div class="auth-panel signup-card admin-card">
+        <div>
+          <p class="eyebrow">Private admin</p>
+          <h1>Admin access</h1>
+          <p class="muted">This dashboard is restricted. Enter the admin PIN to continue.</p>
+        </div>
+        <form id="adminGateForm" class="signin-form standalone-signin">
+          <label>
+            Admin PIN
+            <input id="adminPin" type="password" autocomplete="off" required placeholder="Enter admin PIN">
+          </label>
+          <button class="primary-button" type="submit">Unlock admin</button>
+          <p id="adminGateMessage" class="form-message" role="status"></p>
+        </form>
+      </div>
+    </section>
+
+    <main id="adminDashboard" class="signup-shell admin-shell" hidden>
+      <section class="auth-panel signup-card admin-card">
+        <div>
+          <p class="eyebrow">Admin dashboard</p>
+          <h1>Registered Users</h1>
+          <p class="muted">View local users registered on this browser, their selected markets, and saved profile details.</p>
+          <div class="admin-actions">
+            <button id="adminSignOut" class="ghost-button" type="button">Lock admin</button>
+            <button id="exportUsersCsv" class="primary-button" type="button">Download CSV</button>
+          </div>
+        </div>
+        <div class="admin-summary-grid" id="adminSummary"></div>
+      </section>
+
+      <details class="admin-table-card admin-create-card admin-create-pane">
+        <summary>
+          <div>
+            <h2>Create User</h2>
+            <span>Add a user directly from admin</span>
+          </div>
+        </summary>
+        <form id="adminCreateUserForm" class="signup-form admin-create-user-form">
+          <label>
+            Username
+            <input id="adminCreateUsername" type="text" autocomplete="off" required minlength="2" placeholder="Username">
+          </label>
+          <label>
+            Email
+            <input id="adminCreateEmail" type="email" autocomplete="off" required placeholder="name@gmail.com">
+          </label>
+          <label>
+            Password
+            <input id="adminCreatePassword" type="password" autocomplete="new-password" required minlength="6" placeholder="At least 6 characters">
+          </label>
+          <label>
+            Confirm password
+            <input id="adminCreateConfirmPassword" type="password" autocomplete="new-password" required minlength="6" placeholder="Repeat password">
+          </label>
+          <fieldset class="country-checklist">
+            <legend>Choose countries for this user</legend>
+            <label><input type="checkbox" name="adminCreateCountry" value="Nigeria"> Nigeria</label>
+            <label><input type="checkbox" name="adminCreateCountry" value="UK"> UK</label>
+            <label><input type="checkbox" name="adminCreateCountry" value="US"> US</label>
+            <label><input type="checkbox" name="adminCreateCountry" value="Canada"> Canada</label>
+            <label><input type="checkbox" name="adminCreateCountry" value="Europe"> Europe</label>
+            <label><input type="checkbox" name="adminCreateCountry" value="Asia"> Asia</label>
+            <label><input type="checkbox" name="adminCreateCountry" value="Zimbabwe"> Zimbabwe</label>
+          </fieldset>
+          <button class="primary-button" type="submit">Create user</button>
+          <p id="adminCreateUserMessage" class="form-message" role="status"></p>
+        </form>
+      </details>
+
+      <details class="admin-table-card admin-create-card admin-create-pane admin-message-pane">
+        <summary>
+          <div>
+            <h2>Send Message</h2>
+            <span>Open your email app with selected user emails filled in</span>
+          </div>
+        </summary>
+        <form id="adminMessageForm" class="signup-form admin-message-form">
+          <label>
+            Message
+            <textarea id="adminMessageBody" rows="5" required placeholder="Type the message you want to send to users"></textarea>
+          </label>
+          <label class="admin-select-all">
+            <input id="adminSelectAllUsers" type="checkbox">
+            <span>Send to all users</span>
+          </label>
+          <div>
+            <p class="muted admin-message-help">Or pick the users you want below.</p>
+            <div id="adminMessageRecipients" class="admin-message-recipients"></div>
+          </div>
+          <div class="admin-message-actions">
+            <button class="primary-button" type="submit">Send message</button>
+            <p id="adminMessageStatus" class="form-message" role="status"></p>
+          </div>
+        </form>
+      </details>
+
+      <section class="admin-table-card">
+        <div class="section-heading">
+          <div>
+            <h2>User Details</h2>
+            <span id="adminUserCount">0 users</span>
+          </div>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Plan</th>
+                <th>Days left</th>
+                <th>Registered</th>
+                <th>Last Sign In</th>
+                <th>Sign-ins</th>
+                <th>Last Seen</th>
+                <th>Admin actions</th>
+              </tr>
+            </thead>
+            <tbody id="adminUsersTable"></tbody>
+          </table>
+        </div>
+        <p id="adminEmptyState" class="empty-state" hidden>No registered users found yet.</p>
+      </section>
+    </main>
+
+    <script src="admin.js?v=admin-date-format"></script>
+  </body>
+</html>

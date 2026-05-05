@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "update:nigeria-dividends": "python scripts/scrape_nigeria_dividends.py"
+  }
+}

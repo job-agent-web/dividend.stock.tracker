@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sign In | Dividend Stock Tracker</title>
+    <meta name="theme-color" content="#2563eb">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="stylesheet" href="styles.css?v=job-match-admin-auth">
+  </head>
+  <body class="auth-page admin-page dividend-auth-page">
+    <div class="page-shell auth-page-shell dividend-auth-page-shell">
+      <section class="auth-shell dividend-auth-shell">
+        <article class="auth-card dividend-auth-card" id="authPanel">
+          <p class="card-label">Dividend Stock Tracker</p>
+          <h1 class="auth-title">Sign in</h1>
+          <p class="hero-text auth-copy">Open your dividend tracker profile, saved markets, watchlist, payment access, and alerts.</p>
+          <p class="auth-disclaimer">Disclaimer: This platform does not provide investment advice. It is a research and tracking tool designed to help you make more informed financial decisions. Always do your own research (DYOR) before investing.</p>
+          <section class="app-download-panel" aria-label="Add Dividend Stock Tracker icon">
+            <div>
+              <span>Add app icon</span>
+              <strong>Install on your device</strong>
+            </div>
+            <div class="app-download-links">
+              <a class="app-download-link" href="signin.html" data-install-platform="pc">PC</a>
+              <a class="app-download-link" href="signin.html" data-install-platform="ios">iOS</a>
+              <a class="app-download-link" href="signin.html" data-install-platform="android">Android</a>
+            </div>
+            <p class="app-download-status" data-install-status>Choose your device to see how to add the platform as an icon.</p>
+          </section>
+          <div class="auth-tabs">
+            <a class="ghost-button small-button admin-link" href="signup.html">Sign up</a>
+          </div>
+          <form id="signinForm" class="auth-form dividend-form">
+            <label>
+              Username or email
+              <input id="signinIdentity" type="text" autocomplete="username" required placeholder="Username or email">
+            </label>
+            <label>
+              Password
+              <input id="signinPassword" type="password" autocomplete="current-password" required minlength="6" placeholder="Your password">
+            </label>
+            <label class="remember-signin">
+              <input id="rememberSigninDetails" type="checkbox">
+              Save sign in details
+            </label>
+            <button class="primary-button" type="submit">Sign in</button>
+            <button id="forgotPasswordToggle" class="forgot-password-link" type="button">Forgot password?</button>
+            <p id="signinMessage" class="form-message" role="status"></p>
+            <button id="signinOpenPayment" class="primary-button expired-plan-button" type="button" hidden>Choose a plan</button>
+          </form>
+          <form id="signinOtpForm" class="auth-form dividend-form otp-form" hidden>
+          <h2>Verify your email</h2>
+          <p id="signinOtpHelp" class="otp-help">Enter the OTP sent to your email address before opening your tracker.</p>
+          <label>
+            OTP code
+            <input id="signinOtpCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code">
+          </label>
+          <div class="auth-inline-actions">
+            <button class="primary-button" type="submit">Verify OTP</button>
+            <button id="signinResendOtp" class="ghost-button" type="button">Resend OTP</button>
+          </div>
+          <p id="signinOtpMessage" class="form-message" role="status"></p>
+        </form>
+          <form id="forgotPasswordForm" class="auth-form dividend-form forgot-password-form" hidden>
+          <h2>Reset password</h2>
+          <label>
+            Registered email
+            <input id="forgotEmail" type="email" autocomplete="email" required placeholder="name@gmail.com">
+          </label>
+          <label>
+            New password
+            <input id="forgotNewPassword" type="password" autocomplete="new-password" required minlength="6" placeholder="At least 6 characters">
+          </label>
+          <label>
+            Confirm new password
+            <input id="forgotConfirmPassword" type="password" autocomplete="new-password" required minlength="6" placeholder="Repeat new password">
+          </label>
+          <div class="auth-inline-actions">
+            <button class="primary-button" type="submit">Reset password</button>
+            <button id="forgotPasswordCancel" class="ghost-button" type="button">Cancel</button>
+          </div>
+          <p id="forgotPasswordMessage" class="form-message" role="status"></p>
+        </form>
+        </article>
+
+        <article class="auth-card dividend-auth-card auth-functions-card" aria-label="Platform functions">
+          <p class="card-label">Platform functions</p>
+          <h2>What you can do inside</h2>
+          <div class="auth-feature-grid">
+            <div class="auth-feature-item">
+              <strong>Dividend stock tracker</strong>
+              <span>View quality dividend stocks by selected market, category, yield, price, and buy score.</span>
+            </div>
+            <div class="auth-feature-item">
+              <strong>Price charts</strong>
+              <span>Open stock charts, inspect price movement, and switch between daily, weekly, monthly, yearly, 5-year, and lifetime views.</span>
+            </div>
+            <div class="auth-feature-item">
+              <strong>Buy, hold, or sell prompts</strong>
+              <span>See rules-based research signals with price, safety score, growth, payout ratio, and risk notes.</span>
+            </div>
+            <div class="auth-feature-item">
+              <strong>Dividend dates and alerts</strong>
+              <span>Track qualification, record, and payment dates, including upcoming alert counts.</span>
+            </div>
+            <div class="auth-feature-item">
+              <strong>Watchlist and portfolio</strong>
+              <span>Save stocks to your watchlist, add holdings to your portfolio, remove items, and download your saved data.</span>
+            </div>
+            <div class="auth-feature-item">
+              <strong>Where to buy</strong>
+              <span>Compare platforms such as Trading 212, Revolut, Bamboo, Chaka, Trove, Freetrade, InvestNaija, and other market-specific options where relevant.</span>
+            </div>
+            <div class="auth-feature-item">
+              <strong>News, IPOs, and learning</strong>
+              <span>Check stock news, upcoming IPOs for selected countries, and focused learning channels.</span>
+            </div>
+            <div class="auth-feature-item">
+              <strong>Helpful tools</strong>
+              <span>Use compare stocks, currency converter, beginner mode, high-yield UK savings, dark mode, and account access tracking.</span>
+            </div>
+          </div>
+        </article>
+
+        <article id="signinPaymentModal" class="auth-card paywall-card job-match-payment-modal dividend-payment-card">
+          <p class="card-label">Pricing</p>
+          <h2 id="signinPaymentTitle">Choose a plan</h2>
+          <p id="signinPaymentText" class="helper-text">Choose the plan you want to use.</p>
+          <div class="pricing-grid">
+            <article id="signinMonthlyPaymentCard" class="pricing-card" role="button" tabindex="0" aria-label="Pay 10 pounds with Revolut">
+              <h3>Monthly</h3>
+              <p class="price-tag">&pound;10</p>
+            </article>
+            <article id="signinSixMonthPaymentCard" class="pricing-card" role="button" tabindex="0" aria-label="Pay 50 pounds with Revolut">
+              <h3>6 Months</h3>
+              <p class="price-tag">&pound;50</p>
+              <p class="helper-text">Get 1 week free</p>
+            </article>
+            <article id="signinYearlyPaymentCard" class="pricing-card featured" role="button" tabindex="0" aria-label="Pay 100 pounds with Revolut">
+              <h3>Yearly</h3>
+              <p class="price-tag">&pound;100</p>
+              <p class="helper-text">Get one month free</p>
+            </article>
+            <article id="signinLifetimePaymentCard" class="pricing-card featured" role="button" tabindex="0" aria-label="Pay 200 pounds with Revolut">
+              <h3>Premium Access (Lifetime)</h3>
+              <p class="price-tag">&pound;200<span> one-off</span></p>
+            </article>
+          </div>
+          <p class="helper-text">After payment, please allow a few minutes to update plan.</p>
+          <div id="signinPaymentStatus" class="auth-status neutral"></div>
+        </article>
+      </section>
+    </div>
+    <button id="signinContactAdmin" class="contact-us-fab signin-contact-fab" type="button" aria-label="Email admin at dividendstocktracker@gmail.com">✉</button>
+    <script src="signup.js?v=remember-signin-details"></script>
+  </body>
+</html>

@@ -1,0 +1,20 @@
+Upload the CONTENTS of this folder to GitHub, not the folder itself.
+
+Your GitHub repo root should show these immediately:
+- index.html
+- app.js
+- styles.css
+- vercel.json
+- api
+- scripts
+
+The api folder must contain:
+- ipo-calendar.js
+- market-data.js
+- send-otp.js
+- verify-dividend.js
+
+The scripts folder must contain:
+- scrape_nigeria_dividends.py
+
+Do not upload API keys or .env files to GitHub. Keep API keys in Vercel Environment Variables.

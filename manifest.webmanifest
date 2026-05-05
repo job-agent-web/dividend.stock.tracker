@@ -1,0 +1,19 @@
+{
+  "name": "Dividend Stock Tracker",
+  "short_name": "Dividend Tracker",
+  "description": "Track dividend stocks, alerts, watchlists, portfolio holdings, and stock research signals.",
+  "start_url": "signin.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f9fc",
+  "theme_color": "#2563eb",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
