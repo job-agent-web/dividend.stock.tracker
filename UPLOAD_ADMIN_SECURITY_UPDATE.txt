@@ -1,0 +1,13 @@
+﻿Upload the CONTENTS of this folder to GitHub.
+
+Replace/update these root files:
+- admin.html
+- admin.js
+- vercel.json
+
+Upload/update these files inside the api folder:
+- api/admin-login.js
+- api/admin-session.js
+- api/admin-logout.js
+
+After upload, redeploy Vercel and sign in to admin.html using ADMIN_DASHBOARD_SECRET from Vercel Environment Variables.

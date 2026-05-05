@@ -21,7 +21,6 @@ const adminSelectAllUsers = document.querySelector("#adminSelectAllUsers");
 const adminMessageRecipients = document.querySelector("#adminMessageRecipients");
 const adminMessageStatus = document.querySelector("#adminMessageStatus");
 const usersStorageKey = "dividendRegisteredUsers";
-const adminUnlockedKey = "dividendAdminUnlocked";
 const freeTrialDays = 7;
 const planOptions = {
   trial: { label: "Free week", days: 7 },
@@ -56,11 +55,70 @@ function showAdminDashboard() {
 }
 
 function lockAdminDashboard() {
-  localStorage.removeItem(adminUnlockedKey);
   if (adminDashboard) adminDashboard.hidden = true;
   if (adminGate) adminGate.hidden = false;
   if (adminPin) adminPin.value = "";
   adminPin?.focus();
+}
+
+async function postJson(url, payload = {}) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    cache: "no-store",
+    body: JSON.stringify(payload)
+  });
+  let data = {};
+  try {
+    data = await response.json();
+  } catch {
+    data = {};
+  }
+  return { response, data };
+}
+
+async function checkAdminSession() {
+  try {
+    const response = await fetch("/api/admin-session", {
+      method: "GET",
+      cache: "no-store"
+    });
+    const data = await response.json();
+    if (response.ok && data?.ok) {
+      showAdminDashboard();
+      return true;
+    }
+  } catch {}
+  lockAdminDashboard();
+  return false;
+}
+
+async function loginAdminWithPin() {
+  const pin = adminPin?.value || "";
+  if (adminGateMessage) adminGateMessage.textContent = "Checking admin access...";
+  try {
+    const { response, data } = await postJson("/api/admin-login", { pin });
+    if (!response.ok || !data?.ok) {
+      if (adminGateMessage) adminGateMessage.textContent = data?.message || "Incorrect admin PIN.";
+      adminPin?.focus();
+      return;
+    }
+    if (adminGateMessage) adminGateMessage.textContent = "";
+    showAdminDashboard();
+  } catch {
+    if (adminGateMessage) adminGateMessage.textContent = "Could not reach the secure admin login.";
+    adminPin?.focus();
+  }
+}
+
+async function logoutAdmin() {
+  try {
+    await fetch("/api/admin-logout", {
+      method: "POST",
+      cache: "no-store"
+    });
+  } catch {}
+  lockAdminDashboard();
 }
 
 function normalize(value) {
@@ -472,20 +530,11 @@ function downloadUsersCsv() {
 }
 
 exportUsersCsv?.addEventListener("click", downloadUsersCsv);
-adminGateForm?.addEventListener("submit", (event) => {
+adminGateForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (adminPin?.value === adminPinCode) {
-    localStorage.setItem(adminUnlockedKey, "true");
-    if (adminGateMessage) adminGateMessage.textContent = "";
-    showAdminDashboard();
-    return;
-  }
-  if (adminGateMessage) {
-    adminGateMessage.textContent = "Incorrect admin PIN.";
-  }
-  adminPin?.focus();
+  await loginAdminWithPin();
 });
-adminSignOut?.addEventListener("click", lockAdminDashboard);
+adminSignOut?.addEventListener("click", logoutAdmin);
 adminCreateUserForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   await createUserFromAdmin();
@@ -537,8 +586,4 @@ adminUsersTable?.addEventListener("change", (event) => {
   if (!customDaysInput) return;
   customDaysInput.value = plan.days === Infinity ? 999999 : plan.days;
 });
-if (localStorage.getItem(adminUnlockedKey) === "true") {
-  showAdminDashboard();
-} else {
-  lockAdminDashboard();
-}
+checkAdminSession();
