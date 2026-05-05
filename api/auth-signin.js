@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { issueHostedOtp } = require("./_otp-service");
+const { issueHostedOtp } = require("../lib/_otp-service");
 const {
   ensureAccessFields,
   findUserByIdentity,
@@ -7,7 +7,7 @@ const {
   publicUser,
   supabaseConfigured,
   updateUserByEmail
-} = require("./_shared-user-store");
+} = require("../lib/_shared-user-store");
 
 function json(response, status, payload) {
   response.setHeader("content-type", "application/json; charset=utf-8");

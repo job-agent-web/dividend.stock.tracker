@@ -73,6 +73,33 @@ function createSessionCookie(secret) {
   ].join("; ");
 }
 
+function normalizePasskey(value) {
+  let text = String(value || "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .trim();
+
+  if (
+    (text.startsWith('"') && text.endsWith('"')) ||
+    (text.startsWith("'") && text.endsWith("'")) ||
+    (text.startsWith("`") && text.endsWith("`"))
+  ) {
+    text = text.slice(1, -1).trim();
+  }
+
+  return text;
+}
+
+function getAcceptedAdminPasskeys() {
+  return [
+    normalizePasskey(process.env.ADMIN_DASHBOARD_SECRET || ""),
+    normalizePasskey(process.env.ADMIN_DASHBOARD_SECRET_ALT || "")
+  ].filter(Boolean);
+}
+
+function matchesAnyAdminPasskey(submittedPin, passkeys) {
+  return passkeys.some((passkey) => safeEqual(submittedPin, passkey));
+}
+
 module.exports = async function handler(request, response) {
   if (request.method === "OPTIONS") {
     json(response, 204, "");
@@ -84,10 +111,11 @@ module.exports = async function handler(request, response) {
     return;
   }
 
-  const expectedPin = String(process.env.ADMIN_DASHBOARD_SECRET || "").trim();
+  const acceptedPasskeys = getAcceptedAdminPasskeys();
+  const expectedPin = acceptedPasskeys[0] || "";
   const sessionSecret = String(process.env.ADMIN_SESSION_SECRET || expectedPin).trim();
 
-  if (!expectedPin) {
+  if (!acceptedPasskeys.length) {
     json(response, 500, {
       ok: false,
       message: "Admin passkey is not configured on this deployment."
@@ -97,12 +125,12 @@ module.exports = async function handler(request, response) {
 
   try {
     const body = await readBody(request);
-    const submittedPin = String(body.pin || body.adminPin || "").trim();
+    const submittedPin = normalizePasskey(body.pin || body.adminPin || "");
 
-    if (!submittedPin || !safeEqual(submittedPin, expectedPin)) {
+    if (!submittedPin || !matchesAnyAdminPasskey(submittedPin, acceptedPasskeys)) {
       json(response, 401, {
         ok: false,
-        message: "The admin PIN is incorrect."
+        message: "The admin passkey is incorrect. Check for extra quotes or spaces in the Vercel passkey value."
       });
       return;
     }

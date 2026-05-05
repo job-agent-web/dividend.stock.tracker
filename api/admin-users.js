@@ -1,5 +1,5 @@
-const { requireAdminSession } = require("./_admin-session");
-const { listUsers, publicUser, supabaseConfigured } = require("./_shared-user-store");
+const { requireAdminSession } = require("../lib/_admin-session");
+const { listUsers, publicUser, supabaseConfigured } = require("../lib/_shared-user-store");
 
 function json(response, status, payload) {
   response.setHeader("content-type", "application/json; charset=utf-8");

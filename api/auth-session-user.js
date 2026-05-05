@@ -3,7 +3,7 @@ const {
   publicUser,
   sessionIsValid,
   supabaseConfigured
-} = require("./_shared-user-store");
+} = require("../lib/_shared-user-store");
 
 function json(response, status, payload) {
   response.setHeader("content-type", "application/json; charset=utf-8");

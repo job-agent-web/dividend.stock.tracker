@@ -1,4 +1,4 @@
-const { issueHostedOtp, isValidEmail } = require("./_otp-service");
+const { issueHostedOtp, isValidEmail } = require("../lib/_otp-service");
 const {
   createUser,
   findUserByEmail,
@@ -6,7 +6,7 @@ const {
   normalize,
   publicUser,
   supabaseConfigured
-} = require("./_shared-user-store");
+} = require("../lib/_shared-user-store");
 
 const freeTrialDays = 7;
 

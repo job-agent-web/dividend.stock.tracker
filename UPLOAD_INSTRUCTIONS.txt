@@ -1,20 +1,11 @@
-Upload the CONTENTS of this folder to GitHub, not the folder itself.
+﻿Upload the contents of this folder to your GitHub repo.
 
-Your GitHub repo root should show these immediately:
-- index.html
-- app.js
-- styles.css
-- vercel.json
-- api
-- scripts
+Important:
+After uploading, DELETE these old files from your GitHub repo if they still exist:
+- api/_admin-session.js
+- api/_otp-service.js
+- api/_shared-user-store.js
 
-The api folder must contain:
-- ipo-calendar.js
-- market-data.js
-- send-otp.js
-- verify-dividend.js
+They must live in lib/ now, not api/, otherwise Vercel may try to deploy them as serverless functions.
 
-The scripts folder must contain:
-- scrape_nigeria_dividends.py
-
-Do not upload API keys or .env files to GitHub. Keep API keys in Vercel Environment Variables.
+After GitHub is updated, redeploy Vercel.

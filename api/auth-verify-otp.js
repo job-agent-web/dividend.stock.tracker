@@ -6,8 +6,8 @@ const {
   publicUser,
   supabaseConfigured,
   updateUserByEmail
-} = require("./_shared-user-store");
-const { hashOtp } = require("./_otp-service");
+} = require("../lib/_shared-user-store");
+const { hashOtp } = require("../lib/_otp-service");
 
 function json(response, status, payload) {
   response.setHeader("content-type", "application/json; charset=utf-8");

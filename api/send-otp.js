@@ -1,4 +1,4 @@
-const { issueHostedOtp, isValidEmail } = require("./_otp-service");
+const { issueHostedOtp, isValidEmail } = require("../lib/_otp-service");
 
 function json(response, status, payload) {
   response.setHeader("Access-Control-Allow-Origin", "*");

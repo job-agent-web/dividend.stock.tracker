@@ -1,4 +1,4 @@
-const { requireAdminSession } = require("./_admin-session");
+const { requireAdminSession } = require("../lib/_admin-session");
 const {
   createUser,
   findUserByEmail,
@@ -7,7 +7,7 @@ const {
   publicUser,
   supabaseConfigured,
   updateUserByEmail
-} = require("./_shared-user-store");
+} = require("../lib/_shared-user-store");
 
 const freeTrialDays = 7;
 
