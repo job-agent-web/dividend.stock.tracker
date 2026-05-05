@@ -22,7 +22,6 @@ const adminMessageRecipients = document.querySelector("#adminMessageRecipients")
 const adminMessageStatus = document.querySelector("#adminMessageStatus");
 const usersStorageKey = "dividendRegisteredUsers";
 const adminUnlockedKey = "dividendAdminUnlocked";
-const adminPinCode = "DividendAdmin2026";
 const freeTrialDays = 7;
 const planOptions = {
   trial: { label: "Free week", days: 7 },
