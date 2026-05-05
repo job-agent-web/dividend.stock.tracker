@@ -225,32 +225,40 @@ async function requestHostedOtp(user) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: user.email, username: user.username })
     });
-    if (!response.ok) return null;
-    const data = await response.json();
-    if (!data?.ok || !data.otpHash || !data.otpExpiresAt) return null;
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data?.ok || !data.otpHash || !data.otpExpiresAt) {
+      return {
+        ok: false,
+        message: data?.reason || data?.message || "OTP could not be sent from the hosted site."
+      };
+    }
     return {
+      ok: true,
       otpHash: data.otpHash,
       otpIssuedAt: data.otpIssuedAt || new Date().toISOString(),
       otpExpiresAt: data.otpExpiresAt,
       emailed: true
     };
   } catch {
-    return null;
+    return {
+      ok: false,
+      message: "Could not reach the hosted OTP service right now."
+    };
   }
 }
 
 async function issueOtpForUser(user) {
   const isLocalFile = window.location.protocol === "file:";
   const hostedOtp = await requestHostedOtp(user);
-  if (!isLocalFile && !hostedOtp) {
+  if (!isLocalFile && !hostedOtp?.ok) {
     return {
       ok: false,
       user,
       code: "",
-      message: "OTP could not be sent. Please contact admin or try again later."
+      message: hostedOtp?.message || "OTP could not be sent. Please contact admin or try again later."
     };
   }
-  const code = hostedOtp ? "" : generateOtpCode();
+  const code = hostedOtp?.ok ? "" : generateOtpCode();
   const updatedUser = {
     ...user,
     otpVerified: false,
