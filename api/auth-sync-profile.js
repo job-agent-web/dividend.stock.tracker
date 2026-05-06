@@ -1,6 +1,7 @@
 const {
   findUserByEmail,
   publicUser,
+  refreshSession,
   sessionIsValid,
   supabaseConfigured,
   updateUserByEmail
@@ -60,8 +61,9 @@ module.exports = async function handler(request, response) {
       json(response, 401, { ok: false, message: "Your sign-in session has expired. Please sign in again." });
       return;
     }
+    const refreshedUser = await refreshSession(user, sessionToken);
     const updated = await updateUserByEmail(email, updates);
-    json(response, 200, { ok: true, user: publicUser(updated) });
+    json(response, 200, { ok: true, user: publicUser(updated || refreshedUser || user) });
   } catch (error) {
     json(response, 500, { ok: false, message: error.message || "Could not sync profile." });
   }

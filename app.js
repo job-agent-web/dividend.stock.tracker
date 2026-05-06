@@ -2142,7 +2142,7 @@ function applyInstalledMobileLayout() {
   const installedMobile = isInstalledMobileView();
   document.body.dataset.installedMobile = installedMobile ? "true" : "false";
   if (viewportMeta) {
-    viewportMeta.setAttribute("content", installedMobile ? "width=900, initial-scale=1" : "width=1280, initial-scale=1");
+    viewportMeta.setAttribute("content", installedMobile ? "width=1100, initial-scale=1" : "width=1280, initial-scale=1");
   }
 }
 
@@ -3140,7 +3140,9 @@ function applyDividendDataToStock(stock, dividend) {
 }
 
 function verifiedEvidenceLabel(stock) {
-  if (stock.dividendVerificationStatus) return stock.dividendVerificationStatus;
+  const status = String(stock.dividendVerificationStatus || "").trim();
+  if (/^Verified dividend evidence checked for this stock\.?$/i.test(status)) return "";
+  if (status) return status;
   if (stock.dividendAiChecked) {
     const score = Number.isFinite(stock.dividendAiConfidence) && stock.dividendAiConfidence > 0
       ? ` Confidence ${stock.dividendAiConfidence}/100.`
@@ -3148,6 +3150,15 @@ function verifiedEvidenceLabel(stock) {
     return `AI checked the dividend data against source evidence.${score}`;
   }
   return "";
+}
+
+function visibleDividendDataNote(stock) {
+  const note = String(stock?.dividendDataNote || "").trim();
+  if (!note) return "";
+  if (/^Upcoming qualification, record, and payment dates scraped from the public StockAnalysis dividend page\.?$/i.test(note)) {
+    return "";
+  }
+  return note;
 }
 
 function renderVerifiedStockAfterUpdate(stock) {
@@ -5319,7 +5330,7 @@ function renderDetail(stock) {
     ];
   dividendDates.innerHTML = dividendDateRows
     .map(([label, value]) => `<div class="date-item"><span>${label}</span><strong>${formatDateOrText(value)}</strong></div>`).join("")
-    + `<div class="date-item wide"><span>Dividend data source</span><strong>${dividendSourceName(stock)}</strong>${stock.dividendDataNote ? `<span>${stock.dividendDataNote}</span>` : ""}${verifiedEvidenceLabel(stock) ? `<span>${verifiedEvidenceLabel(stock)}</span>` : ""}</div>`;
+    + `<div class="date-item wide"><span>Dividend data source</span><strong>${dividendSourceName(stock)}</strong>${visibleDividendDataNote(stock) ? `<span>${visibleDividendDataNote(stock)}</span>` : ""}${verifiedEvidenceLabel(stock) ? `<span>${verifiedEvidenceLabel(stock)}</span>` : ""}</div>`;
 
   const report = stock.earningsReport || buildEarningsReport(stock);
   earningsReport.innerHTML = [

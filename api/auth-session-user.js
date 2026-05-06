@@ -1,6 +1,7 @@
 const {
   findUserByEmail,
   publicUser,
+  refreshSession,
   sessionIsValid,
   supabaseConfigured
 } = require("../lib/_shared-user-store");
@@ -39,7 +40,8 @@ module.exports = async function handler(request, response) {
       json(response, 401, { ok: false, message: "Your sign-in session has expired. Please sign in again." });
       return;
     }
-    json(response, 200, { ok: true, user: publicUser(user) });
+    const refreshedUser = await refreshSession(user, sessionToken);
+    json(response, 200, { ok: true, user: publicUser(refreshedUser || user) });
   } catch (error) {
     json(response, 500, { ok: false, message: error.message || "Could not load account session." });
   }
