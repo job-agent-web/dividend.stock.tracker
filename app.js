@@ -2142,7 +2142,7 @@ function applyInstalledMobileLayout() {
   const installedMobile = isInstalledMobileView();
   document.body.dataset.installedMobile = installedMobile ? "true" : "false";
   if (viewportMeta) {
-    viewportMeta.setAttribute("content", installedMobile ? "width=1100, initial-scale=1" : "width=1280, initial-scale=1");
+    viewportMeta.setAttribute("content", installedMobile ? "width=900, initial-scale=1" : "width=1280, initial-scale=1");
   }
 }
 
