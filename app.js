@@ -1544,7 +1544,7 @@ const reasonsList = document.querySelector("#reasonsList");
 const dividendDates = document.querySelector("#dividendDates");
 const earningsReport = document.querySelector("#earningsReport");
 const platforms = document.querySelector("#platforms");
-const chartWrap = document.querySelector(".chart-wrap");
+const viewportMeta = document.querySelector('meta[name="viewport"]');
 const canvas = document.querySelector("#priceChart");
 const ctx = canvas.getContext("2d");
 const chartTooltip = document.querySelector("#chartTooltip");
@@ -2070,14 +2070,8 @@ async function maybeShowDailyStockPopup() {
 function applyInstalledMobileLayout() {
   const installedMobile = isInstalledMobileView();
   document.body.dataset.installedMobile = installedMobile ? "true" : "false";
-  if (contactUsFab && chartWrap && contactUsModal?.parentElement) {
-    if (installedMobile) {
-      if (contactUsFab.parentElement !== chartWrap.parentElement || contactUsFab.previousElementSibling !== chartWrap) {
-        chartWrap.insertAdjacentElement("afterend", contactUsFab);
-      }
-    } else if (contactUsFab.nextElementSibling !== contactUsModal || contactUsFab.parentElement !== contactUsModal.parentElement) {
-      contactUsModal.parentElement.insertBefore(contactUsFab, contactUsModal);
-    }
+  if (viewportMeta) {
+    viewportMeta.setAttribute("content", installedMobile ? "width=900, initial-scale=1" : "width=1280, initial-scale=1");
   }
 }
 
