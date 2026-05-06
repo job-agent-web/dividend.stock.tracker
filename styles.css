@@ -747,6 +747,10 @@ main {
   padding: 22px clamp(16px, 4vw, 48px) 46px;
 }
 
+body[data-installed-mobile="true"] main {
+  padding-bottom: max(12px, calc(env(safe-area-inset-bottom, 0px) + 8px));
+}
+
 .stock-of-day-card {
   margin-bottom: 16px;
 }
@@ -2446,11 +2450,11 @@ textarea {
 }
 
 body[data-installed-mobile="true"] .stock-list {
-  max-height: 32vh;
+  max-height: 27vh;
 }
 
 body[data-installed-mobile="true"][data-lite-mode="on"] .stock-list {
-  max-height: 30vh;
+  max-height: 24vh;
 }
 
 .section-heading,
@@ -3036,6 +3040,10 @@ body[data-theme="dark"] .pwa-update-copy span {
   padding-bottom: 18px;
 }
 
+body[data-installed-mobile="true"] .detail-panel {
+  padding-bottom: 10px;
+}
+
 .muted {
   color: var(--muted);
 }
@@ -3407,10 +3415,10 @@ body[data-lite-mode="on"] .metric-action > span {
 }
 
 body[data-installed-mobile="true"] .contact-us-fab {
-  position: fixed !important;
-  right: max(12px, calc(env(safe-area-inset-right, 0px) + 10px)) !important;
-  bottom: max(12px, calc(env(safe-area-inset-bottom, 0px) + 10px)) !important;
-  z-index: 180 !important;
+  position: static !important;
+  right: auto !important;
+  bottom: auto !important;
+  z-index: auto !important;
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
@@ -3419,6 +3427,7 @@ body[data-installed-mobile="true"] .contact-us-fab {
   white-space: nowrap;
   box-shadow: 0 18px 32px rgba(17, 24, 39, 0.28);
   transform: none;
+  margin: 10px auto 0;
 }
 
 .contact-us-fab:hover {
