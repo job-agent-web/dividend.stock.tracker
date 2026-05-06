@@ -509,6 +509,7 @@ async function renderUsers(force = false) {
           <button class="mini-action danger lock-user-btn" type="button" data-email="${escapeHtml(user.email || "")}" data-locked="${user.isLocked ? "true" : "false"}">${user.isLocked ? "Unlock" : "Lock"}</button>
           <input class="admin-password-input" type="password" minlength="6" placeholder="New password" aria-label="New password for ${escapeHtml(user.username || user.email || "user")}">
           <button class="mini-action set-password-btn" type="button" data-email="${escapeHtml(user.email || "")}">Set password</button>
+          <button class="mini-action danger delete-user-btn" type="button" data-email="${escapeHtml(user.email || "")}" data-username="${escapeHtml(user.username || "")}">Delete user</button>
         </div>
       </td>
     </tr>
@@ -631,6 +632,38 @@ async function setUserPassword(email, password) {
   await renderUsers(true);
 }
 
+async function deleteUser(email, username = "") {
+  const label = username || email || "this user";
+  if (!email) {
+    window.alert("Choose a user to delete.");
+    return;
+  }
+  const confirmed = window.confirm(`Delete ${label}? This removes the account from the platform and cannot be undone.`);
+  if (!confirmed) return;
+
+  if (usesHostedSharedAccounts) {
+    const { response, data } = await postJson("/api/admin?action=user-action", {
+      type: "deleteUser",
+      email
+    });
+    if (!response.ok || !data?.ok) {
+      window.alert(adminApiFailureMessage(response, data, "Could not delete this user."));
+      return;
+    }
+    hostedUsersLoaded = false;
+  } else {
+    const users = uniqueUsers().filter((user) => normalize(user.email) !== normalize(email));
+    persistUsers(users);
+    const currentUser = readJson("dividendProfileUser", null);
+    if (normalize(currentUser?.email) === normalize(email)) {
+      localStorage.removeItem("dividendProfileUser");
+    }
+  }
+
+  window.alert(`${label} has been deleted.`);
+  await renderUsers(true);
+}
+
 function csvEscape(value) {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
 }
@@ -705,6 +738,12 @@ adminUsersTable?.addEventListener("click", async (event) => {
     const email = passwordButton.dataset.email || "";
     const passwordInput = passwordButton.closest(".grant-access")?.querySelector(".admin-password-input");
     await setUserPassword(email, passwordInput?.value || "");
+    return;
+  }
+
+  const deleteButton = event.target.closest(".delete-user-btn");
+  if (deleteButton) {
+    await deleteUser(deleteButton.dataset.email || "", deleteButton.dataset.username || "");
     return;
   }
 

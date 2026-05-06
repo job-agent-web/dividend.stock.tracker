@@ -38,6 +38,7 @@ const signinSixMonthPaymentCard = document.querySelector("#signinSixMonthPayment
 const signinYearlyPaymentCard = document.querySelector("#signinYearlyPaymentCard");
 const signinLifetimePaymentCard = document.querySelector("#signinLifetimePaymentCard");
 const authPanel = document.querySelector("#authPanel");
+const appInstallPanels = [...document.querySelectorAll(".app-download-panel")];
 const appInstallLinks = [...document.querySelectorAll("[data-install-platform]")];
 const appInstallStatus = document.querySelector("[data-install-status]");
 const usersStorageKey = "dividendRegisteredUsers";
@@ -57,6 +58,25 @@ function setAppInstallStatus(message) {
   if (appInstallStatus) appInstallStatus.textContent = message;
 }
 
+function isInstalledAppView() {
+  return Boolean(
+    window.matchMedia?.("(display-mode: standalone)")?.matches ||
+    window.matchMedia?.("(display-mode: fullscreen)")?.matches ||
+    window.navigator?.standalone
+  );
+}
+
+function shouldShowInstallCard() {
+  return window.location.protocol.startsWith("http") && !isInstalledAppView();
+}
+
+function syncInstallCardVisibility() {
+  const show = shouldShowInstallCard();
+  appInstallPanels.forEach((panel) => {
+    panel.hidden = !show;
+  });
+}
+
 function registerAppServiceWorker() {
   if (!("serviceWorker" in navigator) || window.location.protocol === "file:") return;
   navigator.serviceWorker.register("sw.js").catch(() => {
@@ -65,6 +85,7 @@ function registerAppServiceWorker() {
 }
 
 window.addEventListener("beforeinstallprompt", (event) => {
+  if (!shouldShowInstallCard()) return;
   event.preventDefault();
   deferredInstallPrompt = event;
   setAppInstallStatus("Install is ready on this device. Choose Android or install from your browser menu.");
@@ -72,8 +93,10 @@ window.addEventListener("beforeinstallprompt", (event) => {
 
 window.addEventListener("appinstalled", () => {
   deferredInstallPrompt = null;
-  setAppInstallStatus("Dividend Stock Tracker has been installed on this device.");
+  syncInstallCardVisibility();
 });
+
+window.matchMedia?.("(display-mode: standalone)")?.addEventListener?.("change", syncInstallCardVisibility);
 
 async function handleAppInstall(event) {
   const link = event.currentTarget;
@@ -182,6 +205,24 @@ async function postHostedJson(url, payload = {}) {
   });
   const data = await response.json().catch(() => ({}));
   return { response, data };
+}
+
+function cleanAuthMessage(value, fallback = "Something went wrong. Please try again.") {
+  const text = String(value || "").trim();
+  if (!text) return fallback;
+  try {
+    const parsed = JSON.parse(text);
+    const message = parsed?.message || parsed?.msg || parsed?.error_description || parsed?.error?.message || "";
+    if (parsed?.error_code === "over_email_send_rate_limit" || /email rate limit exceeded/i.test(message)) {
+      return "Too many email requests were made. Please wait one minute, then try again.";
+    }
+    return message || fallback;
+  } catch {
+    if (/over_email_send_rate_limit|email rate limit exceeded/i.test(text)) {
+      return "Too many email requests were made. Please wait one minute, then try again.";
+    }
+    return text;
+  }
 }
 
 function loadRememberedSigninDetails() {
@@ -598,7 +639,7 @@ signupForm?.addEventListener("submit", async (event) => {
     });
     if (!response.ok || !data?.ok || !data?.user) {
       signupMessage.classList.add("error");
-      signupMessage.textContent = data?.message || "Could not create your account right now.";
+      signupMessage.textContent = cleanAuthMessage(data?.message || data?.reason, "Could not create your account right now.");
       if (data?.duplicateField === "username") signupUsername.focus();
       if (data?.duplicateField === "email") signupEmail.focus();
       return;
@@ -652,7 +693,7 @@ signinForm?.addEventListener("submit", async (event) => {
       passwordHash
     });
     if (!response.ok || !data?.ok) {
-      signinMessage.textContent = data?.message || "Could not sign in right now.";
+      signinMessage.textContent = cleanAuthMessage(data?.message || data?.reason, "Could not sign in right now.");
       signinMessage.classList.add("error");
       if (data?.expired && data?.user) {
         if (signinOpenPayment) signinOpenPayment.hidden = false;
@@ -680,7 +721,7 @@ signinForm?.addEventListener("submit", async (event) => {
       completeSignin({ ...data.user, sessionToken: data.sessionToken }, identity, password);
       return;
     }
-    signinMessage.textContent = data?.message || "Could not sign in right now.";
+    signinMessage.textContent = cleanAuthMessage(data?.message || data?.reason, "Could not sign in right now.");
     signinMessage.classList.add("error");
     return;
   }
@@ -736,7 +777,7 @@ signupOtpForm?.addEventListener("submit", async (event) => {
     });
     if (!response.ok || !data?.ok) {
       signupOtpMessage.classList.add("error");
-      signupOtpMessage.textContent = data?.message || "Could not verify OTP right now.";
+      signupOtpMessage.textContent = cleanAuthMessage(data?.message || data?.reason, "Could not verify OTP right now.");
       signupOtpCode?.focus();
       return;
     }
@@ -766,7 +807,7 @@ signupResendOtp?.addEventListener("click", async () => {
     const { response, data } = await postHostedJson("/api/auth-resend-otp", { identity });
     if (!response.ok || !data?.ok || !data?.user) {
       signupOtpMessage.classList.add("error");
-      signupOtpMessage.textContent = data?.message || "Could not resend OTP right now.";
+      signupOtpMessage.textContent = cleanAuthMessage(data?.message || data?.reason, "Could not resend OTP right now.");
       return;
     }
     pendingSignupEmail = data.user.email;
@@ -811,7 +852,7 @@ signinOtpForm?.addEventListener("submit", async (event) => {
     });
     if (!response.ok || !data?.ok) {
       signinOtpMessage.classList.add("error");
-      signinOtpMessage.textContent = data?.message || "Could not verify OTP right now.";
+      signinOtpMessage.textContent = cleanAuthMessage(data?.message || data?.reason, "Could not verify OTP right now.");
       if (data?.expired && data?.user) {
         showSigninPaymentModal(data.user);
       }
@@ -850,7 +891,7 @@ signinResendOtp?.addEventListener("click", async () => {
     const { response, data } = await postHostedJson("/api/auth-resend-otp", { identity });
     if (!response.ok || !data?.ok || !data?.user) {
       signinOtpMessage.classList.add("error");
-      signinOtpMessage.textContent = data?.message || "Could not resend OTP right now.";
+      signinOtpMessage.textContent = cleanAuthMessage(data?.message || data?.reason, "Could not resend OTP right now.");
       return;
     }
     pendingSigninUser = { ...pendingSigninUser, ...data.user };
@@ -915,7 +956,7 @@ forgotPasswordForm?.addEventListener("submit", async (event) => {
       passwordHash
     });
     if (!response.ok || !data?.ok) {
-      forgotPasswordMessage.textContent = data?.message || "Could not reset password right now.";
+      forgotPasswordMessage.textContent = cleanAuthMessage(data?.message || data?.reason, "Could not reset password right now.");
       return;
     }
     forgotPasswordMessage.textContent = data.message || "Password reset. You can now sign in with the new password.";
@@ -974,6 +1015,7 @@ appInstallLinks.forEach((link) => {
   link.addEventListener("click", handleAppInstall);
 });
 
+syncInstallCardVisibility();
 registerAppServiceWorker();
 showAccessMessage();
 loadRememberedSigninDetails();

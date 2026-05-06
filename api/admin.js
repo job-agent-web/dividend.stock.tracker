@@ -8,6 +8,7 @@ const {
 } = require("../lib/_admin-session");
 const {
   createUser,
+  deleteUserByEmail,
   findUserByEmail,
   findUserByIdentity,
   listUsers,
@@ -211,6 +212,14 @@ async function setPassword(payload) {
   });
 }
 
+async function deleteUser(payload) {
+  const email = String(payload.email || "").trim().toLowerCase();
+  if (!email) throw new Error("Choose a user to delete.");
+  const deletedUser = await deleteUserByEmail(email);
+  if (!deletedUser) throw new Error("This user could not be found.");
+  return deletedUser;
+}
+
 async function handleUserAction(request, response, body) {
   if (!ensureAdminSession(request, response)) return;
   if (!supabaseConfigured()) {
@@ -223,6 +232,7 @@ async function handleUserAction(request, response, body) {
   else if (type === "grantAccess") user = await grantAccess(body);
   else if (type === "setLockState") user = await setLockState(body);
   else if (type === "setPassword") user = await setPassword(body);
+  else if (type === "deleteUser") user = await deleteUser(body);
   else {
     json(response, 400, { ok: false, message: "Unknown admin action." });
     return;
