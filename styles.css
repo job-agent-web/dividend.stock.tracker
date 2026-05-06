@@ -3044,6 +3044,11 @@ body[data-installed-mobile="true"] .detail-panel {
   padding-bottom: 4px;
 }
 
+body[data-installed-mobile="true"] #secNigeriaPane,
+body[data-installed-mobile="true"] .signal-legend {
+  display: none !important;
+}
+
 .muted {
   color: var(--muted);
 }

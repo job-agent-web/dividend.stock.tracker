@@ -1550,6 +1550,7 @@ const ctx = canvas.getContext("2d");
 const chartTooltip = document.querySelector("#chartTooltip");
 
 hydrateStocksWithVerifiedRsiCache();
+primeEstimatedLivePrices();
 
 let selectedTicker = stocks[0].ticker;
 let selectedStock = stocks[0];
@@ -1927,6 +1928,76 @@ function applyFallbackPriceFromSeries(stock, values = [], labels = [], provider 
   stock.liveStatus = `${provider || "Verified daily history"}${latestDate ? ` ${latestDate}` : ""}`;
   reanalyzeStockMetrics(stock);
   return true;
+}
+
+function todayIsoDate() {
+  return londonDateParts().dateKey;
+}
+
+function applyEstimatedPricePreview(stock, values = [], labels = [], provider = "") {
+  const numericValues = Array.isArray(values)
+    ? values.map(Number).filter((value) => Number.isFinite(value) && value > 0)
+    : [];
+  if (!numericValues.length) return false;
+  const latestPrice = numericValues[numericValues.length - 1];
+  stock.price = Number(latestPrice.toFixed(stock.currency === "GBP" && latestPrice > 100 ? 0 : 2));
+  stock.estimatedPrice = stock.price;
+  stock.estimatedQuoteDate = todayIsoDate();
+  stock.estimatedSourceDate = Array.isArray(labels) && labels.length >= numericValues.length
+    ? String(labels[labels.length - 1] || "")
+    : "";
+  stock.liveStatus = stock.estimatedSourceDate
+    ? `Estimated from latest published close ${stock.estimatedSourceDate}`
+    : `Estimated from ${provider || "recent price history"}`;
+  reanalyzeStockMetrics(stock);
+  return true;
+}
+
+function estimatePriceSeriesForStock(stock) {
+  const dailyValues = Array.isArray(stock.historyByRange?.daily)
+    ? stock.historyByRange.daily.map(Number).filter((value) => Number.isFinite(value) && value > 0)
+    : [];
+  const dailyLabels = Array.isArray(stock.historyLabelsByRange?.daily) ? stock.historyLabelsByRange.daily : [];
+  if (dailyValues.length) {
+    return {
+      values: dailyValues,
+      labels: dailyLabels,
+      provider: stock.dailyHistoryProvider || stock.verifiedRsiData?.provider || "verified daily history"
+    };
+  }
+  const seededValues = Array.isArray(stock.history)
+    ? stock.history.map(Number).filter((value) => Number.isFinite(value) && value > 0)
+    : [];
+  if (seededValues.length) {
+    return {
+      values: seededValues,
+      labels: [],
+      provider: "recent price history"
+    };
+  }
+  return null;
+}
+
+function ensureEstimatedTodayPrice(stock) {
+  if (!stock) return false;
+  const liveDate = normalizeIsoDate(stock.liveQuoteDate || "");
+  const today = todayIsoDate();
+  if (liveDate && liveDate >= today) {
+    stock.estimatedPrice = null;
+    stock.estimatedQuoteDate = "";
+    stock.estimatedSourceDate = "";
+    return false;
+  }
+  const series = estimatePriceSeriesForStock(stock);
+  if (!series) return false;
+  return applyEstimatedPricePreview(stock, series.values, series.labels, series.provider);
+}
+
+function primeEstimatedLivePrices() {
+  if (window.location.protocol === "file:") return;
+  stocks.forEach((stock) => {
+    ensureEstimatedTodayPrice(stock);
+  });
 }
 
 function syncRefreshButtonVisibility() {
@@ -2415,12 +2486,36 @@ function normalizeIsoDate(value) {
 
 function buildTodaySessionOverlay(stock, values, labels) {
   if (!Array.isArray(values) || !Array.isArray(labels) || !values.length || !labels.length) return null;
-  const todayPrice = Number(stock?.price);
-  if (!Number.isFinite(todayPrice) || todayPrice <= 0) return null;
-  const quoteDate = normalizeIsoDate(stock?.liveQuoteDate || stock?.liveStatus || "");
-  if (!quoteDate) return null;
   const lastLabelIso = normalizeIsoDate(labels[labels.length - 1]);
   if (!lastLabelIso) return null;
+  const today = todayIsoDate();
+  const liveQuoteDate = normalizeIsoDate(stock?.liveQuoteDate || stock?.liveStatus || "");
+  const estimatedQuoteDate = normalizeIsoDate(stock?.estimatedQuoteDate || "");
+  const livePrice = Number(stock?.price);
+  const estimatedPrice = Number(stock?.estimatedPrice);
+
+  let quoteDate = "";
+  let todayPrice = Number.NaN;
+  let overlayKind = "live";
+
+  if (liveQuoteDate && liveQuoteDate >= lastLabelIso && Number.isFinite(livePrice) && livePrice > 0) {
+    quoteDate = liveQuoteDate;
+    todayPrice = livePrice;
+  }
+
+  if (
+    estimatedQuoteDate
+    && estimatedQuoteDate >= lastLabelIso
+    && (!quoteDate || quoteDate < today)
+    && Number.isFinite(estimatedPrice)
+    && estimatedPrice > 0
+  ) {
+    quoteDate = estimatedQuoteDate;
+    todayPrice = estimatedPrice;
+    overlayKind = "estimated";
+  }
+
+  if (!quoteDate || !Number.isFinite(todayPrice) || todayPrice <= 0) return null;
   if (quoteDate < lastLabelIso) return null;
   if (quoteDate === lastLabelIso) {
     const patchedValues = values.slice();
@@ -2430,7 +2525,8 @@ function buildTodaySessionOverlay(stock, values, labels) {
       labels: labels.slice(),
       hasOverlay: true,
       overlayDate: quoteDate,
-      overlayMode: "replace"
+      overlayMode: "replace",
+      overlayKind
     };
   }
   return {
@@ -2438,7 +2534,8 @@ function buildTodaySessionOverlay(stock, values, labels) {
     labels: [...labels, quoteDate],
     hasOverlay: true,
     overlayDate: quoteDate,
-    overlayMode: "append"
+    overlayMode: "append",
+    overlayKind
   };
 }
 
@@ -2451,13 +2548,21 @@ function getChartSeries(stock) {
   const rawLabels = Array.isArray(liveLabels) && liveLabels.length >= baseValues.length
     ? liveLabels.slice(-baseValues.length)
     : [];
-  if (chartRange === "daily" && rawLabels.length) {
-    const overlay = buildTodaySessionOverlay(stock, baseValues, rawLabels);
+  if (chartRange === "daily" && baseValues.length) {
+    const overlayLabels = rawLabels.length ? rawLabels : buildDailyIsoLabels(baseValues.length);
+    const overlay = buildTodaySessionOverlay(stock, baseValues, overlayLabels);
     if (overlay) {
+      const overlayTitle = overlay.overlayKind === "estimated"
+        ? (overlay.overlayMode === "append"
+          ? "Daily price history with estimated today price"
+          : "Daily price history with estimated current price")
+        : (overlay.overlayMode === "append"
+          ? "Daily price history with live today session"
+          : "Daily price history with live today price");
       return {
         values: overlay.values,
         labels: overlay.labels.map((label) => formatShortDate(new Date(label))),
-        title: overlay.overlayMode === "append" ? "Daily price history with live today session" : "Daily price history with live today price",
+        title: overlayTitle,
         hasLiveOverlay: true
       };
     }
@@ -2769,6 +2874,13 @@ function applyQuoteToStock(stock, quote) {
     stock.liveStatus = `${quote.provider}${quote.time ? ` ${quote.time}` : ""}`;
     stock.liveQuoteDate = quoteDateForHistory(quote);
     updateDailyRsiHistoryFromQuote(stock, quote);
+    if (normalizeIsoDate(stock.liveQuoteDate) >= todayIsoDate()) {
+      stock.estimatedPrice = null;
+      stock.estimatedQuoteDate = "";
+      stock.estimatedSourceDate = "";
+    } else {
+      ensureEstimatedTodayPrice(stock);
+    }
   }
   if (quote?.liquidity) {
     applyLiquidityPayloadToStock(stock, quote.liquidity);
