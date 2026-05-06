@@ -1205,6 +1205,9 @@ let selectedTicker = stocks[0].ticker;
 let selectedStock = stocks[0];
 let chartRange = "monthly";
 let chartState = { stock: stocks[0], points: [], min: 0, max: 0, labels: [], values: [] };
+let activeChartPointIndex = -1;
+let activeChartStockKey = "";
+let chartPointerActive = false;
 let currentUser = null;
 let activeMarkets = [];
 let latestIpos = [];
@@ -1538,6 +1541,21 @@ function findStockByKey(key) {
   return stocks.find((stock) => stockKey(stock) === key);
 }
 
+function isInstalledMobileView() {
+  const installed = window.matchMedia("(display-mode: standalone)").matches
+    || window.matchMedia("(display-mode: fullscreen)").matches
+    || window.matchMedia("(display-mode: minimal-ui)").matches
+    || window.navigator.standalone === true
+    || document.referrer.startsWith("android-app://");
+  const mobile = window.matchMedia("(pointer: coarse)").matches
+    || /Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent);
+  return installed && mobile;
+}
+
+function applyInstalledMobileLayout() {
+  document.body.dataset.installedMobile = isInstalledMobileView() ? "true" : "false";
+}
+
 function applyTheme(theme) {
   const isDark = theme === "dark";
   document.body.dataset.theme = isDark ? "dark" : "light";
@@ -1587,8 +1605,10 @@ function applyLiteMode(enabled) {
   if (selectedStock) drawChart(selectedStock);
 }
 
+applyInstalledMobileLayout();
+window.addEventListener("resize", applyInstalledMobileLayout, { passive: true });
 applyTheme(localStorage.getItem("dividendTheme") === "dark" ? "dark" : "light");
-applyLiteMode(localStorage.getItem("dividendLiteMode") === "on");
+applyLiteMode(false);
 document.body.removeAttribute("data-view-mode");
 localStorage.removeItem("dividendViewMode");
 
@@ -2119,17 +2139,48 @@ function dividendDataSource(stock) {
   return stock.dividendDataStatus || "Curated fallback schedule; confirm with the official exchange, company investor-relations page, or broker before trading.";
 }
 
+function compactDividendSourceLabel(value = "") {
+  const text = String(value || "").trim();
+  const lower = text.toLowerCase();
+  if (!text) return "";
+  if (lower.includes("ngx pulse") || lower.includes("ngxpulse")) return "Pulse 2026";
+  if (lower.includes("stockanalysis")) return "StockAnalysis";
+  if (lower.includes("yahoo")) return "Yahoo Finance";
+  if (lower.includes("investing.com")) return "Investing.com";
+  if (lower.includes("tradingview")) return "TradingView";
+  if (lower.includes("dividenddata.co.uk")) return "DividendData";
+  if (lower.includes("dividendmax")) return "DividendMax";
+  if (lower.includes("dividend.com")) return "Dividend.com";
+  if (lower.includes("dividend channel")) return "Dividend Channel";
+  if (lower.includes("dividendhistory")) return "DividendHistory";
+  if (lower.includes("proshare")) return "Proshare";
+  if (lower.includes("nairametrics")) return "Nairametrics";
+  if (lower.includes("afrinvest")) return "Afrinvest";
+  if (lower.includes("african markets") || lower.includes("african-markets")) return "African Markets";
+  if (lower.includes("africanfinancials")) return "AfricanFinancials";
+  if (lower.includes("ngx official") || lower.includes("ngx disclosure") || lower.includes("doclib.ngxgroup")) return "NGX disclosure";
+  if (lower.includes("investor relations")) return text.replace(/\s+investor relations.*$/i, " IR");
+  return text
+    .replace(/^NGX Pulse 2026 Nigerian dividend tracker$/i, "Pulse 2026")
+    .replace(/^NGX Pulse 2026 dividend table$/i, "Pulse 2026")
+    .replace(/^StockAnalysis public dividend page$/i, "StockAnalysis")
+    .replace(/^Free public Yahoo dividend-event history$/i, "Yahoo Finance");
+}
+
 function dividendSourceName(stock) {
   if (Array.isArray(stock.dividendEvidence) && stock.dividendEvidence.length) {
-    return stock.dividendEvidence
+    const labels = stock.dividendEvidence
       .map((source) => source.name || source.url)
       .filter(Boolean)
-      .filter((value, index, list) => list.indexOf(value) === index)
-      .join(" / ");
+      .map(compactDividendSourceLabel)
+      .filter(Boolean)
+      .filter((value, index, list) => list.indexOf(value) === index);
+    if (labels.includes("Pulse 2026")) return "Pulse 2026";
+    return labels[0] || "Verified source";
   }
   const status = String(stock.dividendDataStatus || "");
-  if (status.includes(":")) return status.split(":")[0].trim();
-  return status || "Curated fallback";
+  const provider = status.includes(":") ? status.split(":")[0].trim() : status;
+  return compactDividendSourceLabel(provider) || "Curated fallback";
 }
 
 function applyDividendDataToStock(stock, dividend) {
@@ -3846,6 +3897,12 @@ function drawChart(stock, highlightIndex = -1) {
   const pad = 42;
   const series = getChartSeries(stock);
   const values = series.values;
+  const selectedHighlight = highlightIndex >= 0
+    ? highlightIndex
+    : activeChartStockKey === stockKey(stock)
+      ? activeChartPointIndex
+      : -1;
+  const activeHighlight = Math.min(Math.max(selectedHighlight, -1), values.length - 1);
   const min = Math.min(...values) * 0.96;
   const max = Math.max(...values) * 1.04;
   const darkChart = document.body.dataset.theme === "dark";
@@ -3929,16 +3986,16 @@ function drawChart(stock, highlightIndex = -1) {
 
   points.forEach((point) => {
     ctx.beginPath();
-    ctx.arc(point.x, point.y, point.index === highlightIndex ? 7 : 4, 0, Math.PI * 2);
+    ctx.arc(point.x, point.y, point.index === activeHighlight ? 7 : 4, 0, Math.PI * 2);
     ctx.fillStyle = chartColors.pointFill;
     ctx.fill();
-    ctx.strokeStyle = point.index === highlightIndex ? chartColors.highlight : chartColors.point;
-    ctx.lineWidth = point.index === highlightIndex ? 3 : 2;
+    ctx.strokeStyle = point.index === activeHighlight ? chartColors.highlight : chartColors.point;
+    ctx.lineWidth = point.index === activeHighlight ? 3 : 2;
     ctx.stroke();
   });
 
-  if (highlightIndex >= 0 && points[highlightIndex]) {
-    const point = points[highlightIndex];
+  if (activeHighlight >= 0 && points[activeHighlight]) {
+    const point = points[activeHighlight];
     ctx.beginPath();
     ctx.moveTo(point.x, pad);
     ctx.lineTo(point.x, height - pad);
@@ -3965,28 +4022,65 @@ function nearestChartPoint(clientX) {
   ), chartState.points[0]);
 }
 
-function showChartTooltip(event) {
-  if (!chartState.points.length) return;
-  const point = nearestChartPoint(event.clientX);
-  const stock = chartState.stock;
-  const first = chartState.values[0];
-  const change = ((point.value - first) / first) * 100;
-  drawChart(stock, point.index);
-  chartTooltip.hidden = false;
-  chartTooltip.innerHTML = `
-    <strong>${chartState.labels[point.index] || `Point ${point.index + 1}`}</strong>
-    <span>${formatMoney(stock, point.value)}</span>
-    <span>${change >= 0 ? "+" : ""}${change.toFixed(1)}% vs start</span>
-  `;
+function chartPointPeriodLabel() {
+  if (chartRange === "daily") return "Day";
+  if (chartRange === "weekly") return "Week";
+  if (chartRange === "monthly" || chartRange === "5year") return "Month";
+  if (chartRange === "yearly") return "Year";
+  return "Period";
+}
+
+function formatPercentChange(value) {
+  if (!Number.isFinite(value)) return "0.0%";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
+}
+
+function positionChartTooltip(clientX, clientY, point) {
   const wrap = canvas.parentElement.getBoundingClientRect();
   const chart = canvas.getBoundingClientRect();
-  const left = Math.min(Math.max(event.clientX - wrap.left + 12, 8), chart.width - 156);
-  const top = Math.max(event.clientY - wrap.top - 46, 8);
+  const pointClientX = chart.left + (point.x / canvas.width) * chart.width;
+  const pointClientY = chart.top + (point.y / canvas.height) * chart.height;
+  const anchorX = Number.isFinite(clientX) ? clientX : pointClientX;
+  const anchorY = Number.isFinite(clientY) ? clientY : pointClientY;
+  const tooltipWidth = chartTooltip.offsetWidth || 190;
+  const tooltipHeight = chartTooltip.offsetHeight || 88;
+  const wrapWidth = wrap.width || chart.width;
+  const wrapHeight = wrap.height || chart.height;
+  const left = Math.min(Math.max(anchorX - wrap.left - tooltipWidth / 2, 8), Math.max(8, wrapWidth - tooltipWidth - 8));
+  let top = anchorY - wrap.top - tooltipHeight - 16;
+  if (top < 8) top = anchorY - wrap.top + 18;
+  top = Math.min(Math.max(top, 8), Math.max(8, wrapHeight - tooltipHeight - 8));
   chartTooltip.style.left = `${left}px`;
   chartTooltip.style.top = `${top}px`;
 }
 
+function showChartTooltip(event) {
+  if (!chartState.points.length) return;
+  if (event?.pointerType === "touch" && event.cancelable) event.preventDefault();
+  const point = nearestChartPoint(event.clientX);
+  const stock = chartState.stock;
+  const first = chartState.values[0];
+  const previous = chartState.values[Math.max(0, point.index - 1)];
+  const startChange = ((point.value - first) / first) * 100;
+  const previousChange = point.index > 0 && previous
+    ? ((point.value - previous) / previous) * 100
+    : 0;
+  activeChartPointIndex = point.index;
+  activeChartStockKey = stockKey(stock);
+  drawChart(stock, point.index);
+  chartTooltip.hidden = false;
+  chartTooltip.innerHTML = `
+    <strong>${chartState.labels[point.index] || `Point ${point.index + 1}`}</strong>
+    <span>${chartPointPeriodLabel()} price: ${formatMoney(stock, point.value)}</span>
+    <span>From start: ${formatPercentChange(startChange)}</span>
+    <span>Previous ${chartPointPeriodLabel().toLowerCase()}: ${formatPercentChange(previousChange)}</span>
+  `;
+  positionChartTooltip(event.clientX, event.clientY, point);
+}
+
 function hideChartTooltip() {
+  activeChartPointIndex = -1;
+  activeChartStockKey = "";
   chartTooltip.hidden = true;
   drawChart(chartState.stock);
 }
@@ -4201,6 +4295,8 @@ function selectStock(ticker) {
 }
 
 function openStockChart(ticker) {
+  activeChartPointIndex = -1;
+  activeChartStockKey = "";
   selectStock(ticker);
   chartTooltip.hidden = true;
   topbarQuickPanes.forEach((pane) => {
@@ -4450,14 +4546,35 @@ liteSearchInput?.addEventListener("input", () => {
 });
 
 refreshPrices.addEventListener("click", () => refreshLivePrices(true));
-canvas.addEventListener("pointermove", showChartTooltip);
-canvas.addEventListener("pointerleave", hideChartTooltip);
+canvas.addEventListener("pointerdown", (event) => {
+  chartPointerActive = true;
+  canvas.setPointerCapture?.(event.pointerId);
+  showChartTooltip(event);
+});
+canvas.addEventListener("pointermove", (event) => {
+  if (event.pointerType === "mouse" || chartPointerActive) {
+    showChartTooltip(event);
+  }
+});
+canvas.addEventListener("pointerup", (event) => {
+  chartPointerActive = false;
+  canvas.releasePointerCapture?.(event.pointerId);
+});
+canvas.addEventListener("pointercancel", (event) => {
+  chartPointerActive = false;
+  canvas.releasePointerCapture?.(event.pointerId);
+});
+canvas.addEventListener("pointerleave", () => {
+  chartPointerActive = false;
+});
 rangeTabs.forEach((button) => {
   button.addEventListener("click", () => {
     chartRange = button.dataset.range;
     rangeTabs.forEach((tabButton) => {
       tabButton.classList.toggle("active", tabButton === button);
     });
+    activeChartPointIndex = -1;
+    activeChartStockKey = "";
     chartTooltip.hidden = true;
     drawChart(selectedStock);
     saveDashboardState();

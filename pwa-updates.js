@@ -2,6 +2,18 @@
   if (window.location.protocol === "file:" || !("serviceWorker" in navigator)) return;
 
   const updateCheckIntervalMs = 5 * 60 * 1000;
+  const signatureStorageKey = "dividendInstalledDeploymentSignature";
+  const dismissedSignatureStorageKey = "dividendDismissedDeploymentSignature";
+  const signatureAssets = [
+    "index.html",
+    "signin.html",
+    "signup.html",
+    "styles.css",
+    "app.js",
+    "signup.js",
+    "pwa-updates.js",
+    "sw.js"
+  ];
   let registration = null;
   let banner = null;
   let messageNode = null;
@@ -9,6 +21,15 @@
   let dismissButton = null;
   let isRefreshing = false;
   let deployedSignature = "";
+  let pendingSignature = "";
+
+  function isInstalledAppView() {
+    return window.matchMedia("(display-mode: standalone)").matches
+      || window.matchMedia("(display-mode: fullscreen)").matches
+      || window.matchMedia("(display-mode: minimal-ui)").matches
+      || window.navigator.standalone === true
+      || document.referrer.startsWith("android-app://");
+  }
 
   function ensureBanner() {
     if (banner) return banner;
@@ -30,11 +51,13 @@
     actionButton = banner.querySelector("#pwaUpdateAction");
     dismissButton = banner.querySelector("#pwaUpdateDismiss");
     actionButton?.addEventListener("click", applyUpdate);
-    dismissButton?.addEventListener("click", hideBanner);
+    dismissButton?.addEventListener("click", dismissBanner);
     return banner;
   }
 
-  function showBanner(message = "Refresh to load the latest changes on this device.") {
+  function showBanner(message = "Refresh to load the latest changes on this device.", signature = "") {
+    if (!isInstalledAppView()) return;
+    pendingSignature = signature || pendingSignature;
     ensureBanner();
     if (messageNode) messageNode.textContent = message;
     banner.hidden = false;
@@ -44,26 +67,48 @@
     if (banner) banner.hidden = true;
   }
 
-  function currentSignature(response) {
-    return [
-      response.headers.get("x-vercel-id"),
-      response.headers.get("etag"),
-      response.headers.get("last-modified")
-    ].filter(Boolean).join("|");
+  function dismissBanner() {
+    if (pendingSignature) {
+      localStorage.setItem(dismissedSignatureStorageKey, pendingSignature);
+    }
+    hideBanner();
   }
 
-  async function fetchDeploymentSignature() {
-    const target = window.location.pathname || "/";
-    const response = await fetch(target, {
-      method: "HEAD",
+  async function hashText(text) {
+    if (window.crypto?.subtle) {
+      const bytes = new TextEncoder().encode(text);
+      const digest = await window.crypto.subtle.digest("SHA-256", bytes);
+      return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    }
+    let hash = 0;
+    for (let index = 0; index < text.length; index += 1) {
+      hash = ((hash << 5) - hash + text.charCodeAt(index)) | 0;
+    }
+    return String(hash);
+  }
+
+  async function assetSignature(path, index) {
+    const separator = path.includes("?") ? "&" : "?";
+    const response = await fetch(`${path}${separator}pwa-check=${Date.now()}-${index}`, {
       cache: "no-store",
       credentials: "same-origin"
     });
-    return currentSignature(response);
+    const text = await response.text();
+    const hash = await hashText(text);
+    return `${path}:${text.length}:${hash}`;
+  }
+
+  async function fetchDeploymentSignature() {
+    const parts = await Promise.all(signatureAssets.map(assetSignature));
+    return hashText(parts.join("|"));
   }
 
   async function applyUpdate() {
     try {
+      if (pendingSignature) {
+        localStorage.setItem(signatureStorageKey, pendingSignature);
+        localStorage.removeItem(dismissedSignatureStorageKey);
+      }
       if (registration?.waiting) {
         registration.waiting.postMessage({ type: "SKIP_WAITING" });
         showBanner("Updating now...");
@@ -85,26 +130,27 @@
     if (!worker) return;
     worker.addEventListener("statechange", () => {
       if (worker.state === "installed" && navigator.serviceWorker.controller) {
-        showBanner();
+        void checkForDeploymentUpdate();
       }
     });
   }
 
   async function checkForDeploymentUpdate() {
-    if (document.hidden) return;
+    if (document.hidden || !isInstalledAppView()) return;
     try {
-      await registration?.update().catch(() => null);
-      if (registration?.waiting) {
-        showBanner();
-        return;
-      }
       const nextSignature = await fetchDeploymentSignature();
-      if (!deployedSignature) {
+      const storedSignature = localStorage.getItem(signatureStorageKey) || deployedSignature;
+      const dismissedSignature = localStorage.getItem(dismissedSignatureStorageKey) || "";
+      if (!storedSignature) {
         deployedSignature = nextSignature;
+        localStorage.setItem(signatureStorageKey, nextSignature);
         return;
       }
-      if (nextSignature && deployedSignature && nextSignature !== deployedSignature) {
-        showBanner();
+      deployedSignature = storedSignature;
+      if (nextSignature && nextSignature !== storedSignature && nextSignature !== dismissedSignature) {
+        pendingSignature = nextSignature;
+        await registration?.update().catch(() => null);
+        showBanner("A new version is ready. Refresh to update the installed app.", nextSignature);
       }
     } catch {}
   }
@@ -117,17 +163,16 @@
 
   window.addEventListener("load", async () => {
     try {
+      if (!isInstalledAppView()) return;
       registration = await navigator.serviceWorker.register("sw.js");
-      if (registration.waiting) {
-        showBanner();
-      }
       if (registration.installing) {
         wireInstallingWorker(registration.installing);
       }
       registration.addEventListener("updatefound", () => {
         wireInstallingWorker(registration.installing);
       });
-      deployedSignature = await fetchDeploymentSignature().catch(() => "");
+      deployedSignature = localStorage.getItem(signatureStorageKey) || "";
+      await checkForDeploymentUpdate();
       document.addEventListener("visibilitychange", () => {
         if (!document.hidden) void checkForDeploymentUpdate();
       });

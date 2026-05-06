@@ -1,4 +1,4 @@
-const cacheName = "dividend-stock-tracker-v2";
+const cacheName = "dividend-stock-tracker-v3";
 const coreAssets = [
   "signin.html",
   "signup.html",
@@ -16,7 +16,6 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(cacheName).then((cache) => cache.addAll(coreAssets)).catch(() => null)
   );
-  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {

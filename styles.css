@@ -1036,6 +1036,10 @@ main {
     rgba(255, 255, 255, 0.72);
 }
 
+.app-download-panel[hidden] {
+  display: none;
+}
+
 .app-download-panel span {
   display: block;
   color: #56657f;
@@ -2200,6 +2204,14 @@ textarea {
   overflow: auto;
 }
 
+body[data-installed-mobile="true"] .stock-list {
+  max-height: 42vh;
+}
+
+body[data-installed-mobile="true"][data-lite-mode="on"] .stock-list {
+  max-height: 38vh;
+}
+
 .section-heading,
 .detail-header {
   display: flex;
@@ -2785,6 +2797,8 @@ canvas {
   display: block;
   width: 100%;
   height: auto;
+  touch-action: none;
+  user-select: none;
   border: 1px solid var(--line);
   border-radius: 6px;
   background:
@@ -2796,10 +2810,10 @@ canvas {
 .chart-tooltip {
   position: absolute;
   z-index: 3;
-  min-width: 156px;
+  min-width: 190px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  padding: 8px 10px;
+  padding: 9px 11px;
   background: rgba(255, 255, 255, 0.98);
   box-shadow: var(--shadow-strong);
   color: var(--ink);
@@ -2836,12 +2850,17 @@ body[data-lite-mode="on"] .metrics .metric:not(.metric-action) {
   display: none !important;
 }
 
-.lite-only-pane {
+.lite-only-pane,
+.lite-search-field.lite-only-pane {
   display: none;
 }
 
 body[data-lite-mode="on"] .lite-only-pane {
   display: block;
+}
+
+body[data-lite-mode="on"] .lite-search-field.lite-only-pane {
+  display: grid;
 }
 
 body[data-lite-mode="on"] .topbar-panes {
