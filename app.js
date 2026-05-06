@@ -4829,8 +4829,11 @@ function ipoYoutubeLinks(ipos) {
 
 function renderIpoPanel(ipos = []) {
   const countries = activeProfileCountries();
-  const filtered = ipos.filter((ipo) => countries.includes(ipo.country)).slice(0, 8);
-  const hasIpos = filtered.length > 0;
+  const nigeriaSelected = countries.includes("Nigeria");
+  const filtered = nigeriaSelected
+    ? ipos.filter((ipo) => ipo.country === "Nigeria").slice(0, 8)
+    : [];
+  const hasIpos = nigeriaSelected && filtered.length > 0;
   if (ipoPane) {
     ipoPane.hidden = !hasIpos;
     if (!hasIpos) ipoPane.open = false;
@@ -4841,16 +4844,13 @@ function renderIpoPanel(ipos = []) {
     return;
   }
 
-  ipoList.innerHTML = countries.map((country) => {
-    const countryIpos = filtered.filter((ipo) => ipo.country === country);
-    return countryIpos.map((ipo) => `
-      <div class="ipo-card">
-        <strong>${ipo.company} (${ipo.symbol})</strong>
-        <span>${ipo.country} · ${ipo.exchange} · ${ipo.date} · ${ipo.priceRange || "Price TBC"}</span>
-        <span>${ipo.dealSize ? `Deal size: ${ipo.dealSize}` : "Review the prospectus before applying."}</span>
-      </div>
-    `).join("");
-  }).join("");
+  ipoList.innerHTML = filtered.map((ipo) => `
+    <div class="ipo-card">
+      <strong>${ipo.company} (${ipo.symbol})</strong>
+      <span>${ipo.country} · ${ipo.exchange} · ${ipo.date} · ${ipo.priceRange || "Price TBC"}</span>
+      <span>${ipo.dealSize ? `Deal size: ${ipo.dealSize}` : "Review the prospectus before applying."}</span>
+    </div>
+  `).join("");
 
   ipoInstructions.innerHTML = ipoYoutubeLinks(filtered);
 }

@@ -2454,7 +2454,7 @@ body[data-installed-mobile="true"] .stock-list {
 }
 
 body[data-installed-mobile="true"][data-lite-mode="on"] .stock-list {
-  max-height: 24vh;
+  max-height: 20vh;
 }
 
 .section-heading,
@@ -3176,7 +3176,6 @@ body[data-lite-mode="on"] .left-rail > :not(.stock-list):not(.youtube-learning),
 body[data-lite-mode="on"] .topbar-pane:not(.lite-keep),
 body[data-lite-mode="on"] .detail-actions,
 body[data-lite-mode="on"] #detailTicker,
-body[data-lite-mode="on"] .report-button-board,
 body[data-lite-mode="on"] #reportContentShelf,
 body[data-lite-mode="on"] .metrics .metric:not(.metric-action) {
   display: none !important;
@@ -3336,6 +3335,39 @@ body[data-lite-mode="on"] .metric-action:hover {
 
 body[data-lite-mode="on"] .metric-action > span {
   display: none;
+}
+
+body[data-lite-mode="on"] .report-button-board {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(150px, 1fr));
+  gap: 10px;
+  padding: 6px 18px 14px;
+}
+
+body[data-lite-mode="on"] .report-open-button:not(.lite-report-keep) {
+  display: none !important;
+}
+
+body[data-lite-mode="on"] .report-open-button.lite-report-keep {
+  display: flex !important;
+}
+
+body[data-installed-mobile="true"][data-lite-mode="on"] main {
+  padding-bottom: max(0px, env(safe-area-inset-bottom, 0px));
+}
+
+body[data-installed-mobile="true"][data-lite-mode="on"] .detail-panel {
+  padding-bottom: 0;
+}
+
+body[data-installed-mobile="true"][data-lite-mode="on"] .report-button-board {
+  gap: 8px;
+  padding: 4px 18px 10px;
+}
+
+body[data-installed-mobile="true"][data-lite-mode="on"] .report-open-button.lite-report-keep {
+  min-height: 50px;
+  padding: 12px 14px;
 }
 
 .tool-actions {
