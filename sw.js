@@ -1,11 +1,14 @@
-const cacheName = "dividend-stock-tracker-v5";
+const cacheName = "dividend-stock-tracker-v6";
 const coreAssets = [
   "signin.html",
   "signup.html",
+  "auth-callback.html",
   "index.html",
   "styles.css",
   "signup.js",
+  "auth-callback.js",
   "app.js",
+  "market-classifier.js",
   "pwa-updates.js",
   "online-dividend-universe.js",
   "verified-rsi-cache.js",

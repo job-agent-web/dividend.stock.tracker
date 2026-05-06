@@ -4,15 +4,26 @@
   const updateCheckIntervalMs = 5 * 60 * 1000;
   const signatureStorageKey = "dividendInstalledDeploymentSignature";
   const dismissedSignatureStorageKey = "dividendDismissedDeploymentSignature";
+  const browserAutoAppliedSignatureKey = "dividendBrowserAutoAppliedSignature";
   const signatureAssets = [
     "index.html",
     "signin.html",
     "signup.html",
+    "auth-callback.html",
     "styles.css",
     "app.js",
     "signup.js",
+    "auth-callback.js",
+    "market-classifier.js",
+    "online-dividend-universe.js",
+    "verified-rsi-cache.js",
+    "nigeria-dividends.js",
+    "nigeria-dividends-scraped.js",
+    "market-dividends.js",
+    "market-dividends-scraped.js",
     "pwa-updates.js",
-    "sw.js"
+    "sw.js",
+    "manifest.webmanifest"
   ];
   let registration = null;
   let banner = null;
@@ -74,6 +85,13 @@
     hideBanner();
   }
 
+  function rememberDeploymentSignature(signature) {
+    if (!signature) return;
+    deployedSignature = signature;
+    localStorage.setItem(signatureStorageKey, signature);
+    localStorage.removeItem(dismissedSignatureStorageKey);
+  }
+
   async function hashText(text) {
     if (window.crypto?.subtle) {
       const bytes = new TextEncoder().encode(text);
@@ -106,8 +124,7 @@
   async function applyUpdate() {
     try {
       if (pendingSignature) {
-        localStorage.setItem(signatureStorageKey, pendingSignature);
-        localStorage.removeItem(dismissedSignatureStorageKey);
+        rememberDeploymentSignature(pendingSignature);
       }
       if (registration?.waiting) {
         registration.waiting.postMessage({ type: "SKIP_WAITING" });
@@ -126,6 +143,27 @@
     window.location.reload();
   }
 
+  async function autoApplyBrowserUpdate(signature) {
+    if (!signature || isInstalledAppView()) return;
+    if (sessionStorage.getItem(browserAutoAppliedSignatureKey) === signature) return;
+    sessionStorage.setItem(browserAutoAppliedSignatureKey, signature);
+    pendingSignature = signature;
+    rememberDeploymentSignature(signature);
+    try {
+      if (registration) {
+        await registration.update().catch(() => null);
+      }
+      if (registration?.waiting) {
+        registration.waiting.postMessage({ type: "SKIP_WAITING" });
+        window.setTimeout(() => {
+          window.location.reload();
+        }, 250);
+        return;
+      }
+    } catch {}
+    window.location.reload();
+  }
+
   function wireInstallingWorker(worker) {
     if (!worker) return;
     worker.addEventListener("statechange", () => {
@@ -136,21 +174,24 @@
   }
 
   async function checkForDeploymentUpdate() {
-    if (document.hidden || !isInstalledAppView()) return;
+    if (document.hidden) return;
     try {
       const nextSignature = await fetchDeploymentSignature();
       const storedSignature = localStorage.getItem(signatureStorageKey) || deployedSignature;
       const dismissedSignature = localStorage.getItem(dismissedSignatureStorageKey) || "";
       if (!storedSignature) {
-        deployedSignature = nextSignature;
-        localStorage.setItem(signatureStorageKey, nextSignature);
+        rememberDeploymentSignature(nextSignature);
         return;
       }
       deployedSignature = storedSignature;
       if (nextSignature && nextSignature !== storedSignature && nextSignature !== dismissedSignature) {
         pendingSignature = nextSignature;
         await registration?.update().catch(() => null);
-        showBanner("A new version is ready. Refresh to update the installed app.", nextSignature);
+        if (isInstalledAppView()) {
+          showBanner("A new version is ready. Refresh to update the installed app.", nextSignature);
+          return;
+        }
+        await autoApplyBrowserUpdate(nextSignature);
       }
     } catch {}
   }
@@ -163,7 +204,6 @@
 
   window.addEventListener("load", async () => {
     try {
-      if (!isInstalledAppView()) return;
       registration = await navigator.serviceWorker.register("sw.js");
       if (registration.installing) {
         wireInstallingWorker(registration.installing);
