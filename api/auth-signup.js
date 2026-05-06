@@ -1,4 +1,4 @@
-const { isValidEmail, sendSupabaseMagicLink } = require("../lib/_otp-service");
+const { isValidEmail, issueHostedOtp } = require("../lib/_otp-service");
 const {
   createUser,
   findUserByEmail,
@@ -31,13 +31,6 @@ function addDays(date, days) {
 function isDuplicateError(error) {
   const message = String(error?.message || error || "").toLowerCase();
   return message.includes("duplicate") || message.includes("unique") || message.includes("already exists");
-}
-
-function requestOrigin(request) {
-  const origin = request.headers.origin || "";
-  if (origin) return origin;
-  const host = request.headers.host || "";
-  return host ? `https://${host}` : "";
 }
 
 module.exports = async function handler(request, response) {
@@ -96,15 +89,11 @@ module.exports = async function handler(request, response) {
       return;
     }
 
-    const magicLink = await sendSupabaseMagicLink({
-      email,
-      username,
-      origin: requestOrigin(request)
-    });
-    if (!magicLink.sent) {
+    const otp = await issueHostedOtp({ email, username });
+    if (!otp.ok) {
       json(response, 503, {
         ok: false,
-        message: magicLink.reason || "Magic link could not be sent right now."
+        message: otp.reason || otp.message || "OTP could not be sent right now."
       });
       return;
     }
@@ -129,12 +118,10 @@ module.exports = async function handler(request, response) {
         paidUntil: addDays(now, freeTrialDays).toISOString(),
         paymentConfirmed: false,
         otpVerified: false,
-        otpHash: "",
-        otpIssuedAt: now.toISOString(),
-        otpExpiresAt: "",
-        otpDelivery: "magic-link",
-        magicLinkIssuedAt: now.toISOString(),
-        magicLinkRedirectTo: magicLink.redirectTo || "",
+        otpHash: otp.otpHash,
+        otpIssuedAt: otp.otpIssuedAt,
+        otpExpiresAt: otp.otpExpiresAt,
+        otpDelivery: otp.otpDelivery,
         signInCount: 0
       });
     } catch (error) {
@@ -152,9 +139,9 @@ module.exports = async function handler(request, response) {
 
     json(response, 200, {
       ok: true,
-      magicLink: true,
-      requiresOtp: false,
-      message: "Sign up created. Check your email and click the verification link.",
+      magicLink: false,
+      requiresOtp: true,
+      message: "Sign up created. Enter the OTP sent to your email before signing in.",
       user: publicUser(createdUser)
     });
   } catch (error) {

@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { sendSupabaseMagicLink } = require("../lib/_otp-service");
+const { issueHostedOtp } = require("../lib/_otp-service");
 const {
   ensureAccessFields,
   findUserByIdentity,
@@ -38,11 +38,12 @@ function daysLeftForUser(user) {
   return Math.max(0, Math.ceil((until - new Date()) / 86400000));
 }
 
-function requestOrigin(request) {
-  const origin = request.headers.origin || "";
-  if (origin) return origin;
-  const host = request.headers.host || "";
-  return host ? `https://${host}` : "";
+function otpWaitSeconds(user) {
+  const issuedAt = new Date(user?.otpIssuedAt || "");
+  if (!Number.isFinite(issuedAt.getTime())) return 0;
+  const resendSeconds = Number(process.env.OTP_RESEND_SECONDS || process.env.MAGIC_LINK_RESEND_SECONDS || 60);
+  const remaining = Math.ceil((issuedAt.getTime() + resendSeconds * 1000 - Date.now()) / 1000);
+  return Math.max(0, remaining);
 }
 
 module.exports = async function handler(request, response) {
@@ -74,33 +75,45 @@ module.exports = async function handler(request, response) {
     }
 
     if (accessUser.otpVerified === false) {
-      const magicLink = await sendSupabaseMagicLink({
-        email: accessUser.email,
-        username: accessUser.username,
-        origin: requestOrigin(request)
-      });
-      if (!magicLink.sent) {
-        json(response, 503, { ok: false, message: magicLink.reason || "Magic link could not be sent right now." });
+      const waitSeconds = otpWaitSeconds(accessUser);
+      if (waitSeconds > 0) {
+        const challenge = createSigninChallenge();
+        const updated = await updateUserByEmail(accessUser.email, {
+          signInChallengeHash: challengeHash(challenge),
+          signInChallengeIssuedAt: new Date().toISOString()
+        });
+        json(response, 200, {
+          ok: true,
+          magicLink: false,
+          requiresOtp: true,
+          challenge,
+          waitSeconds,
+          message: `An OTP was sent recently. Please check your inbox or wait ${waitSeconds} seconds before requesting another one.`,
+          user: publicUser(updated || accessUser)
+        });
+        return;
+      }
+      const otp = await issueHostedOtp(accessUser);
+      if (!otp.ok) {
+        json(response, 503, { ok: false, message: otp.reason || otp.message || "OTP could not be sent right now." });
         return;
       }
       const challenge = createSigninChallenge();
       const updated = await updateUserByEmail(accessUser.email, {
         otpVerified: false,
-        otpHash: "",
-        otpIssuedAt: new Date().toISOString(),
-        otpExpiresAt: "",
-        otpDelivery: "magic-link",
-        magicLinkIssuedAt: new Date().toISOString(),
-        magicLinkRedirectTo: magicLink.redirectTo || "",
+        otpHash: otp.otpHash,
+        otpIssuedAt: otp.otpIssuedAt,
+        otpExpiresAt: otp.otpExpiresAt,
+        otpDelivery: otp.otpDelivery,
         signInChallengeHash: challengeHash(challenge),
         signInChallengeIssuedAt: new Date().toISOString()
       });
       json(response, 200, {
         ok: true,
-        magicLink: true,
-        requiresOtp: false,
+        magicLink: false,
+        requiresOtp: true,
         challenge,
-        message: "Your email is not verified. Check your inbox and click the verification link.",
+        message: "Your email is not verified. Enter the OTP sent to your email.",
         user: publicUser(updated)
       });
       return;

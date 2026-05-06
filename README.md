@@ -71,21 +71,22 @@ The repository includes `.github/workflows/refresh-dividend-data.yml`. Once GitH
 
 ## Hosted Email Verification
 
-Hosted sign-up now uses Supabase Auth magic links instead of Resend OTPs. This avoids the Resend testing-only sender limit while still requiring users to verify their email before opening the tracker.
+Hosted sign-up uses a 6-digit OTP email. The preferred provider is Brevo Transactional Email, because it can send OTP-style messages like the Job Match project without relying on Resend's testing-only sender.
 
 Add these Vercel environment variables:
 
-- `SUPABASE_URL` - your Supabase project URL
-- `SUPABASE_SERVICE_ROLE_KEY` - the server-side service role key for that project
-- `SUPABASE_ANON_KEY` - optional, but recommended for Supabase Auth email calls
-- `SUPABASE_MAGIC_LINK_REDIRECT_URL` - set this to `https://your-site.vercel.app/auth-callback.html`
+- `BREVO_API_KEY` - your Brevo transactional email API key
+- `BREVO_SENDER_EMAIL` - your Brevo sender email, for example `name@account.brevosend.com` or a verified sender
+- `BREVO_SENDER_NAME` - optional, defaults to `Dividend Stock Tracker`
+- `BREVO_REPLY_TO_EMAIL` - optional, defaults to `dividendstocktracker@gmail.com`
 - `APP_NAME` - optional email heading
 
-In Supabase, also add the same callback URL under Authentication redirect URLs:
+The hosted OTP flow still needs the shared Supabase user store variables because users are saved there:
 
-- `https://your-site.vercel.app/auth-callback.html`
+- `SUPABASE_URL` - your Supabase project URL
+- `SUPABASE_SERVICE_ROLE_KEY` - the server-side service role key for that project
 
-If the site is opened locally with `file://`, it still uses the local test OTP path. Hosted deployments use Supabase magic links for email verification.
+If Brevo is not configured, the server can fall back to Resend, but Resend's `onboarding@resend.dev` sender is testing-only and may only send to the Resend account owner's email. For real sign-ups to other users, configure Brevo or a verified sender domain.
 
 ## Shared Accounts Across Phone And Desktop
 

@@ -1,4 +1,4 @@
-const { sendSupabaseMagicLink } = require("../lib/_otp-service");
+const { issueHostedOtp } = require("../lib/_otp-service");
 const {
   findUserByIdentity,
   publicUser,
@@ -20,11 +20,12 @@ async function readBody(request) {
   return text ? JSON.parse(text) : {};
 }
 
-function requestOrigin(request) {
-  const origin = request.headers.origin || "";
-  if (origin) return origin;
-  const host = request.headers.host || "";
-  return host ? `https://${host}` : "";
+function otpWaitSeconds(user) {
+  const issuedAt = new Date(user?.otpIssuedAt || "");
+  if (!Number.isFinite(issuedAt.getTime())) return 0;
+  const resendSeconds = Number(process.env.OTP_RESEND_SECONDS || process.env.MAGIC_LINK_RESEND_SECONDS || 60);
+  const remaining = Math.ceil((issuedAt.getTime() + resendSeconds * 1000 - Date.now()) / 1000);
+  return Math.max(0, remaining);
 }
 
 module.exports = async function handler(request, response) {
@@ -46,28 +47,32 @@ module.exports = async function handler(request, response) {
       json(response, 404, { ok: false, message: "Create or find your account before requesting another OTP." });
       return;
     }
-    const magicLink = await sendSupabaseMagicLink({
-      email: user.email,
-      username: user.username,
-      origin: requestOrigin(request)
-    });
-    if (!magicLink.sent) {
-      json(response, 503, { ok: false, message: magicLink.reason || "Magic link could not be sent right now." });
+    const waitSeconds = otpWaitSeconds(user);
+    if (waitSeconds > 0) {
+      json(response, 429, {
+        ok: false,
+        waitSeconds,
+        message: `An OTP was sent recently. Please check your inbox or wait ${waitSeconds} seconds before requesting another one.`
+      });
+      return;
+    }
+    const otp = await issueHostedOtp(user);
+    if (!otp.ok) {
+      json(response, 503, { ok: false, message: otp.reason || otp.message || "OTP could not be sent right now." });
       return;
     }
     const updated = await updateUserByEmail(user.email, {
       otpVerified: false,
-      otpHash: "",
-      otpIssuedAt: new Date().toISOString(),
-      otpExpiresAt: "",
-      otpDelivery: "magic-link",
-      magicLinkIssuedAt: new Date().toISOString(),
-      magicLinkRedirectTo: magicLink.redirectTo || ""
+      otpHash: otp.otpHash,
+      otpIssuedAt: otp.otpIssuedAt,
+      otpExpiresAt: otp.otpExpiresAt,
+      otpDelivery: otp.otpDelivery
     });
     json(response, 200, {
       ok: true,
-      magicLink: true,
-      message: "A new verification link has been sent. Open it from your email before it expires.",
+      magicLink: false,
+      requiresOtp: true,
+      message: "A new OTP has been sent. Enter it before it expires.",
       user: publicUser(updated)
     });
   } catch (error) {
