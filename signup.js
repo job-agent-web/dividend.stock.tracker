@@ -41,6 +41,7 @@ const authPanel = document.querySelector("#authPanel");
 const appInstallPanels = [...document.querySelectorAll(".app-download-panel")];
 const appInstallLinks = [...document.querySelectorAll("[data-install-platform]")];
 const appInstallStatus = document.querySelector("[data-install-status]");
+const viewportMeta = document.querySelector('meta[name="viewport"]');
 const usersStorageKey = "dividendRegisteredUsers";
 const rememberedSigninKey = "dividendRememberedSignin";
 const dailyStockPopupSeenKey = "dividendDailyStockPopupSeen";
@@ -75,6 +76,19 @@ function isInstalledMobileView() {
   const mobile = window.matchMedia?.("(pointer: coarse)")?.matches
     || /Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent || "");
   return Boolean(installed && mobile);
+}
+
+function applyInstalledMobileAuthLayout() {
+  const installedMobile = isInstalledMobileView();
+  document.body.dataset.installedMobile = installedMobile ? "true" : "false";
+  if (viewportMeta) {
+    viewportMeta.setAttribute(
+      "content",
+      installedMobile
+        ? "width=980, initial-scale=1"
+        : "width=device-width, initial-scale=1"
+    );
+  }
 }
 
 function londonDateParts(date = new Date()) {
@@ -144,6 +158,10 @@ window.addEventListener("appinstalled", () => {
 });
 
 window.matchMedia?.("(display-mode: standalone)")?.addEventListener?.("change", syncInstallCardVisibility);
+window.matchMedia?.("(display-mode: standalone)")?.addEventListener?.("change", applyInstalledMobileAuthLayout);
+window.matchMedia?.("(display-mode: minimal-ui)")?.addEventListener?.("change", applyInstalledMobileAuthLayout);
+window.addEventListener("orientationchange", applyInstalledMobileAuthLayout);
+window.addEventListener("resize", applyInstalledMobileAuthLayout);
 
 async function handleAppInstall(event) {
   const link = event.currentTarget;
@@ -1173,6 +1191,7 @@ appInstallLinks.forEach((link) => {
 });
 
 syncInstallCardVisibility();
+applyInstalledMobileAuthLayout();
 registerAppServiceWorker();
 showAccessMessage();
 loadRememberedSigninDetails();
