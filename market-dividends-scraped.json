@@ -3,7 +3,8 @@
     "sourceName": "Public dividend pages",
     "sourceUrl": "https://stockanalysis.com/",
     "verifiedAt": "2026-05-05",
-    "note": "Scraped public dividend pages for 1505 stocks using StockAnalysis and supported fallback pages where needed."
+    "note": "Scraped public dividend pages for 1505 stocks using StockAnalysis and supported fallback pages where needed. Market buckets reclassified with the tightened cross-listed stock classifier.",
+    "reclassifiedAt": "2026-05-06T08:17:42.634Z"
   },
   "audit": {
     "generatedAt": "2026-05-05T12:28:08.861Z",
@@ -328,7 +329,9 @@
         "key": "Zimbabwe:SIM",
         "reason": "No scrapeable dividend table was found."
       }
-    ]
+    ],
+    "reclassifiedAt": "2026-05-06T08:17:42.634Z",
+    "movedKeys": 0
   },
   "records": {
     "Asia:BABA": {
@@ -5105,7 +5108,7 @@
       ],
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page."
     },
-    "Europe:AMCR": {
+    "UK:AMCR": {
       "company": "Amcor plc",
       "sourceName": "DividendHistory.org public payout page",
       "sourceUrl": "https://dividendhistory.org/payout/AMCR/",
@@ -6085,7 +6088,7 @@
       ],
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page; the source labels the cycle as estimated or unconfirmed."
     },
-    "Europe:AZN": {
+    "UK:AZN": {
       "company": "AstraZeneca PLC",
       "sourceName": "StockAnalysis public dividend page",
       "sourceUrl": "https://stockanalysis.com/quote/lon/AZN/dividend/",
@@ -6862,7 +6865,7 @@
       ],
       "note": "Recent dividend history scraped from the public DividendHistory.org payout page; no future declared cycle was listed on the page."
     },
-    "Europe:BHP": {
+    "UK:BHP": {
       "company": "BHP Group Limited",
       "sourceName": "StockAnalysis public dividend page",
       "sourceUrl": "https://stockanalysis.com/quote/lon/BHP/dividend/",
@@ -7044,7 +7047,7 @@
       ],
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page; the source labels the cycle as estimated or unconfirmed."
     },
-    "Europe:BP": {
+    "UK:BP": {
       "company": "BP p.l.c.",
       "sourceName": "StockAnalysis public dividend page",
       "sourceUrl": "https://stockanalysis.com/quote/lon/BP/dividend/",
@@ -7240,7 +7243,7 @@
       ],
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page."
     },
-    "Europe:BTI": {
+    "UK:BTI": {
       "company": "British American Tobacco p.l.c.",
       "sourceName": "StockAnalysis public dividend page",
       "sourceUrl": "https://stockanalysis.com/stocks/BTI/dividend/",
@@ -9102,7 +9105,7 @@
       ],
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page; the source labels the cycle as estimated or unconfirmed."
     },
-    "Europe:DEO": {
+    "UK:DEO": {
       "company": "Diageo plc",
       "sourceName": "StockAnalysis public dividend page",
       "sourceUrl": "https://stockanalysis.com/stocks/DEO/dividend/",
@@ -11538,7 +11541,7 @@
       ],
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page."
     },
-    "Europe:GSK": {
+    "UK:GSK": {
       "company": "GSK plc",
       "sourceName": "StockAnalysis public dividend page",
       "sourceUrl": "https://stockanalysis.com/quote/lon/GSK/dividend/",
@@ -12105,7 +12108,7 @@
       ],
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page; the source labels the cycle as estimated or unconfirmed."
     },
-    "Europe:HSBC": {
+    "UK:HSBC": {
       "company": "HSBC Holdings plc",
       "sourceName": "StockAnalysis public dividend page",
       "sourceUrl": "https://stockanalysis.com/stocks/HSBC/dividend/",
@@ -14576,7 +14579,7 @@
       ],
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page; the source labels the cycle as estimated or unconfirmed."
     },
-    "Europe:NTES": {
+    "Asia:NTES": {
       "company": "NetEase, Inc.",
       "sourceName": "DividendHistory.org public payout page",
       "sourceUrl": "https://dividendhistory.org/payout/NTES/",
@@ -16928,7 +16931,7 @@
       ],
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page; the source labels the cycle as estimated or unconfirmed."
     },
-    "Europe:RIO": {
+    "UK:RIO": {
       "company": "Rio Tinto Group",
       "sourceName": "StockAnalysis public dividend page",
       "sourceUrl": "https://stockanalysis.com/quote/lon/RIO/dividend/",
@@ -17887,7 +17890,7 @@
       ],
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page."
     },
-    "Europe:SHEL": {
+    "UK:SHEL": {
       "company": "Shell plc",
       "sourceName": "StockAnalysis public dividend page",
       "sourceUrl": "https://stockanalysis.com/quote/lon/SHEL/dividend/",
@@ -19161,104 +19164,6 @@
       ],
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page; the source labels the cycle as estimated or unconfirmed."
     },
-    "Europe:TSM": {
-      "company": "Taiwan Semiconductor Manufacturing Company Limited",
-      "sourceName": "DividendHistory.org public payout page",
-      "sourceUrl": "https://dividendhistory.org/payout/TSM/",
-      "verifiedAt": "2026-05-05T12:28:28.243Z",
-      "qualificationDate": "2026-06-11",
-      "recordDate": "",
-      "paymentDate": "2026-07-09",
-      "amount": 0.950329,
-      "currency": "EUR",
-      "history": [
-        {
-          "exDate": "2026-12-11",
-          "recordDate": "",
-          "payDate": "2027-01-08",
-          "amount": 0.95,
-          "currency": "EUR"
-        },
-        {
-          "exDate": "2026-09-16",
-          "recordDate": "",
-          "payDate": "2026-10-09",
-          "amount": 0.95,
-          "currency": "EUR"
-        },
-        {
-          "exDate": "2026-06-11",
-          "recordDate": "",
-          "payDate": "2026-07-09",
-          "amount": 0.950329,
-          "currency": "EUR"
-        },
-        {
-          "exDate": "2026-03-17",
-          "recordDate": "",
-          "payDate": "2026-04-09",
-          "amount": 0.967804,
-          "currency": "EUR"
-        },
-        {
-          "exDate": "2025-12-11",
-          "recordDate": "",
-          "payDate": "2026-01-08",
-          "amount": 0.83478,
-          "currency": "EUR"
-        },
-        {
-          "exDate": "2025-09-16",
-          "recordDate": "",
-          "payDate": "2025-10-09",
-          "amount": 0.822639,
-          "currency": "EUR"
-        },
-        {
-          "exDate": "2025-06-12",
-          "recordDate": "",
-          "payDate": "2025-07-10",
-          "amount": 0.685453,
-          "currency": "EUR"
-        },
-        {
-          "exDate": "2025-03-18",
-          "recordDate": "",
-          "payDate": "2025-04-10",
-          "amount": 0.694165,
-          "currency": "EUR"
-        },
-        {
-          "exDate": "2024-12-12",
-          "recordDate": "",
-          "payDate": "2025-01-09",
-          "amount": 0.61656,
-          "currency": "EUR"
-        },
-        {
-          "exDate": "2024-09-12",
-          "recordDate": "",
-          "payDate": "2024-10-09",
-          "amount": 0.615839,
-          "currency": "EUR"
-        },
-        {
-          "exDate": "2024-06-13",
-          "recordDate": "",
-          "payDate": "2024-07-11",
-          "amount": 0.558,
-          "currency": "EUR"
-        },
-        {
-          "exDate": "2024-03-18",
-          "recordDate": "",
-          "payDate": "2024-04-11",
-          "amount": 0.54146,
-          "currency": "EUR"
-        }
-      ],
-      "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page."
-    },
     "Europe:TT": {
       "company": "Trane Technologies plc",
       "sourceName": "DividendHistory.org public payout page",
@@ -20190,7 +20095,7 @@
       ],
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page; the source labels the cycle as estimated or unconfirmed."
     },
-    "Europe:UL": {
+    "UK:UL": {
       "company": "Unilever PLC",
       "sourceName": "StockAnalysis public dividend page",
       "sourceUrl": "https://stockanalysis.com/stocks/UL/dividend/",
@@ -21723,97 +21628,6 @@
       ],
       "note": "Recent dividend history scraped from the public StockAnalysis dividend page; no future declared cycle was listed on the page."
     },
-    "UK:AZN": {
-      "company": "AstraZeneca",
-      "sourceName": "StockAnalysis public dividend page",
-      "sourceUrl": "https://stockanalysis.com/quote/lon/AZN/dividend/",
-      "verifiedAt": "2026-05-05T12:28:30.623Z",
-      "qualificationDate": "2026-02-19",
-      "recordDate": "2026-02-20",
-      "paymentDate": "2026-03-23",
-      "amount": 1.595,
-      "currency": "GBp",
-      "history": [
-        {
-          "exDate": "2026-02-19",
-          "recordDate": "2026-02-20",
-          "payDate": "2026-03-23",
-          "amount": 1.595,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2025-08-07",
-          "recordDate": "2025-08-08",
-          "payDate": "2025-09-08",
-          "amount": 0.767,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2025-02-20",
-          "recordDate": "2025-02-21",
-          "payDate": "2025-03-24",
-          "amount": 1.68,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2024-08-08",
-          "recordDate": "2024-08-09",
-          "payDate": "2024-09-09",
-          "amount": 0.776,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2024-02-22",
-          "recordDate": "2024-02-23",
-          "payDate": "2024-03-25",
-          "amount": 1.56,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2023-08-10",
-          "recordDate": "2023-08-11",
-          "payDate": "2023-09-11",
-          "amount": 0.718,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2023-02-23",
-          "recordDate": "2023-02-24",
-          "payDate": "2023-03-27",
-          "amount": 1.628,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2022-08-11",
-          "recordDate": "2022-08-12",
-          "payDate": "2022-09-12",
-          "amount": 0.764,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2022-02-24",
-          "recordDate": "2022-02-25",
-          "payDate": "2022-03-28",
-          "amount": 1.453,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2021-08-12",
-          "recordDate": "2021-08-13",
-          "payDate": "2021-09-13",
-          "amount": 0.648,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2021-02-25",
-          "recordDate": "2021-02-26",
-          "payDate": "2021-03-29",
-          "amount": 1.374,
-          "currency": "GBp"
-        }
-      ],
-      "note": "Recent dividend history scraped from the public StockAnalysis dividend page; no future declared cycle was listed on the page."
-    },
     "UK:BARC": {
       "company": "Barclays",
       "sourceName": "StockAnalysis public dividend page",
@@ -22003,90 +21817,6 @@
       ],
       "note": "Upcoming qualification, record, and payment dates scraped from the public StockAnalysis dividend page."
     },
-    "UK:BHP": {
-      "company": "BHP Group",
-      "sourceName": "StockAnalysis public dividend page",
-      "sourceUrl": "https://stockanalysis.com/quote/lon/BHP/dividend/",
-      "verifiedAt": "2026-05-05T12:28:31.165Z",
-      "qualificationDate": "2026-03-05",
-      "recordDate": "2026-03-06",
-      "paymentDate": "2026-03-26",
-      "amount": 0.54889,
-      "currency": "GBp",
-      "history": [
-        {
-          "exDate": "2026-03-05",
-          "recordDate": "2026-03-06",
-          "payDate": "2026-03-26",
-          "amount": 0.54889,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2025-09-04",
-          "recordDate": "2025-09-05",
-          "payDate": "2025-09-25",
-          "amount": 0.4477,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2025-03-06",
-          "recordDate": "2025-03-07",
-          "payDate": "2025-03-27",
-          "amount": 0.3875,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2024-09-12",
-          "recordDate": "2024-09-13",
-          "payDate": "2024-10-03",
-          "amount": 0.56821,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2024-03-07",
-          "recordDate": "2024-03-08",
-          "payDate": "2024-03-28",
-          "amount": 0.56519,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2023-09-07",
-          "recordDate": "2023-09-08",
-          "payDate": "2023-09-28",
-          "amount": 0.63852,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2023-03-09",
-          "recordDate": "2023-03-10",
-          "payDate": "2023-03-30",
-          "amount": 0.76042,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2022-09-01",
-          "recordDate": "2022-09-02",
-          "payDate": "2022-09-22",
-          "amount": 1.50514,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2022-02-24",
-          "recordDate": "2022-02-25",
-          "payDate": "2022-03-28",
-          "amount": 1.11133,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2021-09-02",
-          "recordDate": "2021-09-03",
-          "payDate": "2021-09-21",
-          "amount": 1.44378,
-          "currency": "GBp"
-        }
-      ],
-      "note": "Recent dividend history scraped from the public StockAnalysis dividend page; no future declared cycle was listed on the page."
-    },
     "UK:BLND": {
       "company": "British Land",
       "sourceName": "StockAnalysis public dividend page",
@@ -22173,104 +21903,6 @@
           "recordDate": "2021-01-08",
           "payDate": "2021-02-19",
           "amount": 0.084,
-          "currency": "GBp"
-        }
-      ],
-      "note": "Recent dividend history scraped from the public StockAnalysis dividend page; no future declared cycle was listed on the page."
-    },
-    "UK:BP": {
-      "company": "BP",
-      "sourceName": "StockAnalysis public dividend page",
-      "sourceUrl": "https://stockanalysis.com/quote/lon/BP/dividend/",
-      "verifiedAt": "2026-05-05T12:28:31.451Z",
-      "qualificationDate": "2026-02-19",
-      "recordDate": "2026-02-20",
-      "paymentDate": "2026-03-27",
-      "amount": 0.06226,
-      "currency": "GBp",
-      "history": [
-        {
-          "exDate": "2026-02-19",
-          "recordDate": "2026-02-20",
-          "payDate": "2026-03-27",
-          "amount": 0.06226,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2025-11-13",
-          "recordDate": "2025-11-14",
-          "payDate": "2025-12-19",
-          "amount": 0.06239,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2025-08-14",
-          "recordDate": "2025-08-15",
-          "payDate": "2025-09-19",
-          "amount": 0.06194,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2025-05-15",
-          "recordDate": "2025-05-16",
-          "payDate": "2025-06-27",
-          "amount": 0.05899,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2025-02-20",
-          "recordDate": "2025-02-21",
-          "payDate": "2025-03-28",
-          "amount": 0.06176,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2024-11-07",
-          "recordDate": "2024-11-08",
-          "payDate": "2024-12-20",
-          "amount": 0.06296,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2024-08-08",
-          "recordDate": "2024-08-09",
-          "payDate": "2024-09-20",
-          "amount": 0.0605,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2024-05-16",
-          "recordDate": "2024-05-17",
-          "payDate": "2024-06-28",
-          "amount": 0.05683,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2024-02-15",
-          "recordDate": "2024-02-16",
-          "payDate": "2024-03-28",
-          "amount": 0.05692,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2023-11-09",
-          "recordDate": "2023-11-10",
-          "payDate": "2023-12-19",
-          "amount": 0.05737,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2023-08-10",
-          "recordDate": "2023-08-11",
-          "payDate": "2023-09-22",
-          "amount": 0.05732,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2023-05-11",
-          "recordDate": "2023-05-12",
-          "payDate": "2023-06-23",
-          "amount": 0.05309,
           "currency": "GBp"
         }
       ],
@@ -22842,104 +22474,6 @@
         }
       ],
       "note": "Recent dividend history scraped from the public StockAnalysis dividend page; no future declared cycle was listed on the page."
-    },
-    "UK:GSK": {
-      "company": "GSK",
-      "sourceName": "StockAnalysis public dividend page",
-      "sourceUrl": "https://stockanalysis.com/quote/lon/GSK/dividend/",
-      "verifiedAt": "2026-05-05T12:28:32.506Z",
-      "qualificationDate": "2026-05-14",
-      "recordDate": "2026-05-15",
-      "paymentDate": "2026-07-09",
-      "amount": 0.17,
-      "currency": "GBp",
-      "history": [
-        {
-          "exDate": "2026-05-14",
-          "recordDate": "2026-05-15",
-          "payDate": "2026-07-09",
-          "amount": 0.17,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2026-02-19",
-          "recordDate": "2026-02-20",
-          "payDate": "2026-04-09",
-          "amount": 0.18,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2025-11-13",
-          "recordDate": "2025-11-14",
-          "payDate": "2026-01-08",
-          "amount": 0.16,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2025-08-14",
-          "recordDate": "2025-08-15",
-          "payDate": "2025-10-09",
-          "amount": 0.16,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2025-05-15",
-          "recordDate": "2025-05-16",
-          "payDate": "2025-07-10",
-          "amount": 0.16,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2025-02-20",
-          "recordDate": "2025-02-21",
-          "payDate": "2025-04-10",
-          "amount": 0.16,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2024-11-14",
-          "recordDate": "2024-11-15",
-          "payDate": "2025-01-09",
-          "amount": 0.15,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2024-08-15",
-          "recordDate": "2024-08-16",
-          "payDate": "2024-10-10",
-          "amount": 0.15,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2024-05-16",
-          "recordDate": "2024-05-17",
-          "payDate": "2024-07-11",
-          "amount": 0.15,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2024-02-22",
-          "recordDate": "2024-02-23",
-          "payDate": "2024-04-11",
-          "amount": 0.16,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2023-11-16",
-          "recordDate": "2023-11-17",
-          "payDate": "2024-01-11",
-          "amount": 0.14,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2023-08-17",
-          "recordDate": "2023-08-18",
-          "payDate": "2023-10-12",
-          "amount": 0.14,
-          "currency": "GBp"
-        }
-      ],
-      "note": "Upcoming qualification, record, and payment dates scraped from the public StockAnalysis dividend page."
     },
     "UK:HICL": {
       "company": "HICL Infrastructure",
@@ -24656,90 +24190,6 @@
       ],
       "note": "Upcoming qualification, record, and payment dates scraped from the public StockAnalysis dividend page."
     },
-    "UK:RIO": {
-      "company": "Rio Tinto",
-      "sourceName": "StockAnalysis public dividend page",
-      "sourceUrl": "https://stockanalysis.com/quote/lon/RIO/dividend/",
-      "verifiedAt": "2026-05-05T12:28:35.131Z",
-      "qualificationDate": "2026-03-05",
-      "recordDate": "2026-03-06",
-      "paymentDate": "2026-04-16",
-      "amount": 1.9177,
-      "currency": "GBp",
-      "history": [
-        {
-          "exDate": "2026-03-05",
-          "recordDate": "2026-03-06",
-          "payDate": "2026-04-16",
-          "amount": 1.9177,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2025-08-14",
-          "recordDate": "2025-08-15",
-          "payDate": "2025-09-25",
-          "amount": 1.0858,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2025-03-06",
-          "recordDate": "2025-03-07",
-          "payDate": "2025-04-17",
-          "amount": 1.75988,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2024-08-15",
-          "recordDate": "2024-08-16",
-          "payDate": "2024-09-26",
-          "amount": 1.34228,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2024-03-07",
-          "recordDate": "2024-03-08",
-          "payDate": "2024-04-18",
-          "amount": 2.0377,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2023-08-10",
-          "recordDate": "2023-08-11",
-          "payDate": "2023-09-21",
-          "amount": 1.3767,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2023-03-09",
-          "recordDate": "2023-03-10",
-          "payDate": "2023-04-20",
-          "amount": 1.8535,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2022-08-11",
-          "recordDate": "2022-08-12",
-          "payDate": "2022-09-22",
-          "amount": 2.2163,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2022-03-10",
-          "recordDate": "2022-03-11",
-          "payDate": "2022-04-21",
-          "amount": 3.5232,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2021-08-12",
-          "recordDate": "2021-08-13",
-          "payDate": "2021-09-23",
-          "amount": 4.041,
-          "currency": "GBp"
-        }
-      ],
-      "note": "Recent dividend history scraped from the public StockAnalysis dividend page; no future declared cycle was listed on the page."
-    },
     "UK:RKT": {
       "company": "Reckitt Benckiser",
       "sourceName": "StockAnalysis public dividend page",
@@ -25099,104 +24549,6 @@
           "recordDate": "2021-08-13",
           "payDate": "2021-09-24",
           "amount": 0.074,
-          "currency": "GBp"
-        }
-      ],
-      "note": "Recent dividend history scraped from the public StockAnalysis dividend page; no future declared cycle was listed on the page."
-    },
-    "UK:SHEL": {
-      "company": "Shell",
-      "sourceName": "StockAnalysis public dividend page",
-      "sourceUrl": "https://stockanalysis.com/quote/lon/SHEL/dividend/",
-      "verifiedAt": "2026-05-05T12:28:36.090Z",
-      "qualificationDate": "2026-02-19",
-      "recordDate": "2026-02-20",
-      "paymentDate": "2026-03-30",
-      "amount": 0.2787,
-      "currency": "GBp",
-      "history": [
-        {
-          "exDate": "2026-02-19",
-          "recordDate": "2026-02-20",
-          "payDate": "2026-03-30",
-          "amount": 0.2787,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2025-11-13",
-          "recordDate": "2025-11-14",
-          "payDate": "2025-12-18",
-          "amount": 0.2685,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2025-08-14",
-          "recordDate": "2025-08-15",
-          "payDate": "2025-09-22",
-          "amount": 0.2662,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2025-05-15",
-          "recordDate": "2025-05-16",
-          "payDate": "2025-06-23",
-          "amount": 0.2641,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2025-02-13",
-          "recordDate": "2025-02-14",
-          "payDate": "2025-03-24",
-          "amount": 0.2779,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2024-11-14",
-          "recordDate": "2024-11-15",
-          "payDate": "2024-12-19",
-          "amount": 0.2703,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2024-08-15",
-          "recordDate": "2024-08-16",
-          "payDate": "2024-09-23",
-          "amount": 0.2615,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2024-05-16",
-          "recordDate": "2024-05-17",
-          "payDate": "2024-06-24",
-          "amount": 0.2694,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2024-02-15",
-          "recordDate": "2024-02-16",
-          "payDate": "2024-03-25",
-          "amount": 0.269,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2023-11-16",
-          "recordDate": "2023-11-17",
-          "payDate": "2023-12-20",
-          "amount": 0.2631,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2023-08-10",
-          "recordDate": "2023-08-11",
-          "payDate": "2023-09-18",
-          "amount": 0.26297,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2023-05-18",
-          "recordDate": "2023-05-19",
-          "payDate": "2023-06-26",
-          "amount": 0.23236,
           "currency": "GBp"
         }
       ],
@@ -26113,95 +25465,102 @@
       "note": "Recent dividend history scraped from the public StockAnalysis dividend page; no future declared cycle was listed on the page."
     },
     "UK:VOD": {
-      "company": "Vodafone",
-      "sourceName": "StockAnalysis public dividend page",
-      "sourceUrl": "https://stockanalysis.com/quote/lon/VOD/dividend/",
-      "verifiedAt": "2026-05-05T12:28:37.305Z",
-      "qualificationDate": "2025-11-20",
-      "recordDate": "2025-11-21",
-      "paymentDate": "2026-02-05",
-      "amount": 0.01951,
-      "currency": "GBp",
+      "company": "Vodafone Group Public Limited Company",
+      "sourceName": "DividendHistory.org public payout page",
+      "sourceUrl": "https://dividendhistory.org/payout/VOD/",
+      "verifiedAt": "2026-05-05T12:31:15.465Z",
+      "qualificationDate": "2026-06-05",
+      "recordDate": "",
+      "paymentDate": "2026-07-31",
+      "amount": 0.26,
+      "currency": "USD",
       "history": [
         {
-          "exDate": "2025-11-20",
-          "recordDate": "2025-11-21",
+          "exDate": "2026-11-24",
+          "recordDate": "",
+          "payDate": "2027-02-05",
+          "amount": 0.26,
+          "currency": "USD"
+        },
+        {
+          "exDate": "2026-06-05",
+          "recordDate": "",
+          "payDate": "2026-07-31",
+          "amount": 0.26,
+          "currency": "USD"
+        },
+        {
+          "exDate": "2025-11-24",
+          "recordDate": "",
           "payDate": "2026-02-05",
-          "amount": 0.01951,
-          "currency": "GBp"
+          "amount": 0.256702,
+          "currency": "USD"
         },
         {
-          "exDate": "2025-06-05",
-          "recordDate": "2025-06-06",
+          "exDate": "2025-06-06",
+          "recordDate": "",
           "payDate": "2025-08-01",
-          "amount": 0.01954,
-          "currency": "GBp"
+          "amount": 0.23549,
+          "currency": "USD"
         },
         {
-          "exDate": "2024-11-21",
-          "recordDate": "2024-11-22",
+          "exDate": "2024-11-22",
+          "recordDate": "",
           "payDate": "2025-02-07",
-          "amount": 0.01886,
-          "currency": "GBp"
+          "amount": 0.242309,
+          "currency": "USD"
         },
         {
-          "exDate": "2024-06-06",
-          "recordDate": "2024-06-07",
+          "exDate": "2024-06-07",
+          "recordDate": "",
           "payDate": "2024-08-02",
-          "amount": 0.0379,
-          "currency": "GBp"
+          "amount": 0.468568,
+          "currency": "USD"
         },
         {
-          "exDate": "2023-11-23",
-          "recordDate": "2023-11-24",
+          "exDate": "2023-11-22",
+          "recordDate": "",
           "payDate": "2024-02-02",
-          "amount": 0.03845,
-          "currency": "GBp"
+          "amount": 0.463955,
+          "currency": "USD"
         },
         {
           "exDate": "2023-06-08",
-          "recordDate": "2023-06-09",
+          "recordDate": "",
           "payDate": "2023-08-04",
-          "amount": 0.03864,
-          "currency": "GBp"
+          "amount": 0.4882,
+          "currency": "USD"
         },
         {
-          "exDate": "2022-11-24",
-          "recordDate": "2022-11-25",
+          "exDate": "2022-11-23",
+          "recordDate": "",
           "payDate": "2023-02-03",
-          "amount": 0.03959,
-          "currency": "GBp"
+          "amount": 0.4658,
+          "currency": "USD"
         },
         {
-          "exDate": "2022-06-01",
-          "recordDate": "2022-06-06",
+          "exDate": "2022-06-03",
+          "recordDate": "",
           "payDate": "2022-08-05",
-          "amount": 0.03785,
-          "currency": "GBp"
+          "amount": 0.472455,
+          "currency": "USD"
         },
         {
-          "exDate": "2021-11-25",
-          "recordDate": "2021-11-26",
+          "exDate": "2021-11-24",
+          "recordDate": "",
           "payDate": "2022-02-04",
-          "amount": 0.03758,
-          "currency": "GBp"
+          "amount": 0.5142,
+          "currency": "USD"
         },
         {
           "exDate": "2021-06-24",
-          "recordDate": "2021-06-25",
+          "recordDate": "",
           "payDate": "2021-08-06",
-          "amount": 0.03834,
-          "currency": "GBp"
-        },
-        {
-          "exDate": "2020-12-17",
-          "recordDate": "2020-12-18",
-          "payDate": "2021-02-05",
-          "amount": 0.03981,
-          "currency": "GBp"
+          "amount": 0.537,
+          "currency": "USD"
         }
       ],
-      "note": "Recent dividend history scraped from the public StockAnalysis dividend page; no future declared cycle was listed on the page."
+      "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page; the source labels the cycle as estimated or unconfirmed."
     },
     "US:AB": {
       "company": "AllianceBernstein Holding L.P.",
@@ -28506,7 +27865,7 @@
       ],
       "note": "Recent dividend history scraped from the public StockAnalysis dividend page; no future declared cycle was listed on the page."
     },
-    "US:AER": {
+    "Europe:AER": {
       "company": "AerCap Holdings N.V.",
       "sourceName": "StockAnalysis public dividend page",
       "sourceUrl": "https://stockanalysis.com/stocks/AER/dividend/",
@@ -34085,7 +33444,7 @@
       ],
       "note": "Recent dividend history scraped from the public StockAnalysis dividend page; no future declared cycle was listed on the page."
     },
-    "US:ASR": {
+    "Europe:ASR": {
       "company": "Grupo Aeroportuario del Sureste, S. A. B. de C. V.",
       "sourceName": "StockAnalysis public dividend page",
       "sourceUrl": "https://stockanalysis.com/stocks/ASR/dividend/",
@@ -39839,7 +39198,7 @@
       ],
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page; the source labels the cycle as estimated or unconfirmed."
     },
-    "US:BLX": {
+    "Europe:BLX": {
       "company": "Banco Latinoamericano de Comercio Exterior, S. A.",
       "sourceName": "DividendHistory.org public payout page",
       "sourceUrl": "https://dividendhistory.org/payout/BLX/",
@@ -46587,7 +45946,7 @@
       ],
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page; the source labels the cycle as estimated or unconfirmed."
     },
-    "US:CGAU": {
+    "Canada:CGAU": {
       "company": "Centerra Gold Inc.",
       "sourceName": "DividendHistory.org public payout page",
       "sourceUrl": "https://dividendhistory.org/payout/CGAU/",
@@ -48253,7 +47612,7 @@
       ],
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page; the source labels the cycle as estimated or unconfirmed."
     },
-    "US:CLB": {
+    "Europe:CLB": {
       "company": "Core Laboratories N.V.",
       "sourceName": "DividendHistory.org public payout page",
       "sourceUrl": "https://dividendhistory.org/payout/CLB/",
@@ -48736,7 +48095,7 @@
       ],
       "note": "Recent dividend history scraped from the public DividendHistory.org payout page; no future declared cycle was listed on the page."
     },
-    "US:CMBT": {
+    "Europe:CMBT": {
       "company": "Cmb.Tech N.V.",
       "sourceName": "DividendHistory.org public payout page",
       "sourceUrl": "https://dividendhistory.org/payout/CMBT/",
@@ -49912,7 +49271,7 @@
       ],
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page; the source labels the cycle as estimated or unconfirmed."
     },
-    "US:CNH": {
+    "Europe:CNH": {
       "company": "CNH Industrial N.V.",
       "sourceName": "DividendInvestor public dividend page",
       "sourceUrl": "https://www.dividendinvestor.com/dividend-history-detail/cnh/",
@@ -59517,81 +58876,102 @@
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page; the source labels the cycle as estimated or unconfirmed."
     },
     "US:ECO": {
-      "company": "Okeanis Eco Tankers Corp.",
-      "sourceName": "DividendInvestor public dividend page",
-      "sourceUrl": "https://www.dividendinvestor.com/dividend-history-detail/eco/",
-      "verifiedAt": "2026-05-05T12:29:24.699Z",
-      "qualificationDate": "2026-03-03",
-      "recordDate": "2026-03-03",
-      "paymentDate": "2026-03-10",
-      "amount": 1.55,
-      "currency": "USD",
+      "company": "Econet Wireless Zimbabwe",
+      "sourceName": "StockAnalysis public dividend page",
+      "sourceUrl": "https://stockanalysis.com/quote/zmse/ECO/dividend/",
+      "verifiedAt": "2026-05-05T12:31:25.970Z",
+      "qualificationDate": "2026-03-19",
+      "recordDate": "2026-03-20",
+      "paymentDate": "2026-03-25",
+      "amount": 1.9665,
+      "currency": "US cents",
       "history": [
         {
-          "exDate": "2026-03-03",
-          "recordDate": "2026-03-03",
-          "payDate": "2026-03-10",
-          "amount": 1.55,
-          "currency": "USD"
+          "exDate": "2026-03-19",
+          "recordDate": "2026-03-20",
+          "payDate": "2026-03-25",
+          "amount": 1.9665,
+          "currency": "US cents"
         },
         {
-          "exDate": "2025-12-02",
-          "recordDate": "2025-12-02",
-          "payDate": "2025-12-11",
-          "amount": 0.75,
-          "currency": "USD"
+          "exDate": "2025-12-31",
+          "recordDate": "2026-01-02",
+          "payDate": "2026-01-07",
+          "amount": 1.93401,
+          "currency": "US cents"
         },
         {
-          "exDate": "2025-08-22",
-          "recordDate": "2025-08-22",
-          "payDate": "2025-09-05",
-          "amount": 0.7,
-          "currency": "USD"
+          "exDate": "2025-09-18",
+          "recordDate": "2025-09-19",
+          "payDate": "2025-09-24",
+          "amount": 1.93401,
+          "currency": "US cents"
         },
         {
-          "exDate": "2025-06-03",
-          "recordDate": "2025-06-03",
-          "payDate": "2025-06-12",
-          "amount": 0.32,
-          "currency": "USD"
+          "exDate": "2025-06-19",
+          "recordDate": "2025-06-20",
+          "payDate": "2025-06-25",
+          "amount": 2.03146,
+          "currency": "US cents"
         },
         {
-          "exDate": "2025-03-03",
-          "recordDate": "2025-03-03",
-          "payDate": "2025-03-17",
-          "amount": 0.35,
-          "currency": "USD"
+          "exDate": "2025-03-19",
+          "recordDate": "2025-03-21",
+          "payDate": "2025-03-26",
+          "amount": 2.3538,
+          "currency": "US cents"
         },
         {
-          "exDate": "2024-11-18",
-          "recordDate": "2024-11-18",
-          "payDate": "2024-12-04",
-          "amount": 0.45,
-          "currency": "USD"
+          "exDate": "2024-12-18",
+          "recordDate": "2024-12-20",
+          "payDate": "2024-12-24",
+          "amount": 1.16191,
+          "currency": "US cents"
         },
         {
-          "exDate": "2024-08-21",
-          "recordDate": "2024-08-21",
-          "payDate": "2024-09-05",
-          "amount": 1.1,
-          "currency": "USD"
+          "exDate": "2024-09-18",
+          "recordDate": "2024-09-20",
+          "payDate": "2024-09-25",
+          "amount": 1.32183,
+          "currency": "US cents"
         },
         {
-          "exDate": "2024-06-05",
-          "recordDate": "2024-06-05",
-          "payDate": "2024-06-20",
-          "amount": 1.1,
-          "currency": "USD"
+          "exDate": "2024-07-03",
+          "recordDate": "2024-07-05",
+          "payDate": "2024-07-10",
+          "amount": 0.83957,
+          "currency": "US cents"
         },
         {
-          "exDate": "2024-03-08",
-          "recordDate": "2024-03-11",
-          "payDate": "2024-03-22",
-          "amount": 0.66,
-          "currency": "USD"
+          "exDate": "2024-03-26",
+          "recordDate": "2024-03-28",
+          "payDate": "2024-04-03",
+          "amount": 1.77409,
+          "currency": "US cents"
+        },
+        {
+          "exDate": "2021-12-08",
+          "recordDate": "2021-12-10",
+          "payDate": "2021-12-15",
+          "amount": 0.59969,
+          "currency": "US cents"
+        },
+        {
+          "exDate": "2021-08-18",
+          "recordDate": "2021-08-20",
+          "payDate": "2021-08-26",
+          "amount": 0.59969,
+          "currency": "US cents"
+        },
+        {
+          "exDate": "2021-04-21",
+          "recordDate": "2021-04-23",
+          "payDate": "2021-04-30",
+          "amount": 0.3998,
+          "currency": "US cents"
         }
       ],
-      "note": "Recent dividend history scraped from the public DividendInvestor page; no future declared cycle was listed on the page."
+      "note": "Recent dividend history scraped from the public StockAnalysis dividend page; no future declared cycle was listed on the page."
     },
     "US:EEX": {
       "company": "Emerald Holding, Inc.",
@@ -81349,7 +80729,7 @@
       ],
       "note": "Recent dividend history scraped from the public DividendInvestor page; no future declared cycle was listed on the page."
     },
-    "US:ING": {
+    "Europe:ING": {
       "company": "ING Groep N.V.",
       "sourceName": "DividendHistory.org public payout page",
       "sourceUrl": "https://dividendhistory.org/payout/ING/",
@@ -83666,7 +83046,7 @@
       ],
       "note": "Recent dividend history scraped from the public DividendInvestor page; no future declared cycle was listed on the page."
     },
-    "US:JBS": {
+    "Europe:JBS": {
       "company": "JBS N.V.",
       "sourceName": "DividendInvestor public dividend page",
       "sourceUrl": "https://www.dividendinvestor.com/dividend-history-detail/jbs/",
@@ -107529,7 +106909,7 @@
       ],
       "note": "Recent dividend history scraped from the public DividendInvestor page; no future declared cycle was listed on the page."
     },
-    "US:PBA": {
+    "Canada:PBA": {
       "company": "Pembina Pipeline Corporation",
       "sourceName": "DividendHistory.org public payout page",
       "sourceUrl": "https://dividendhistory.org/payout/PBA/",
@@ -109489,7 +108869,7 @@
       ],
       "note": "Recent dividend history scraped from the public DividendInvestor page; no future declared cycle was listed on the page."
     },
-    "US:PHG": {
+    "Europe:PHG": {
       "company": "Koninklijke Philips N.V.",
       "sourceName": "DividendHistory.org public payout page",
       "sourceUrl": "https://dividendhistory.org/payout/PHG/",
@@ -120171,7 +119551,7 @@
       ],
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page; the source labels the cycle as estimated or unconfirmed."
     },
-    "US:SLB": {
+    "Europe:SLB": {
       "company": "SLB N.V.",
       "sourceName": "DividendHistory.org public payout page",
       "sourceUrl": "https://dividendhistory.org/payout/SLB/",
@@ -132113,7 +131493,7 @@
       ],
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page."
     },
-    "US:VBNK": {
+    "Canada:VBNK": {
       "company": "VersaBank",
       "sourceName": "DividendHistory.org public payout page",
       "sourceUrl": "https://dividendhistory.org/payout/VBNK/",
@@ -133589,104 +132969,6 @@
         }
       ],
       "note": "Upcoming qualification, record, and payment dates scraped from the public DividendInvestor page."
-    },
-    "US:VOD": {
-      "company": "Vodafone Group Public Limited Company",
-      "sourceName": "DividendHistory.org public payout page",
-      "sourceUrl": "https://dividendhistory.org/payout/VOD/",
-      "verifiedAt": "2026-05-05T12:31:15.465Z",
-      "qualificationDate": "2026-06-05",
-      "recordDate": "",
-      "paymentDate": "2026-07-31",
-      "amount": 0.26,
-      "currency": "USD",
-      "history": [
-        {
-          "exDate": "2026-11-24",
-          "recordDate": "",
-          "payDate": "2027-02-05",
-          "amount": 0.26,
-          "currency": "USD"
-        },
-        {
-          "exDate": "2026-06-05",
-          "recordDate": "",
-          "payDate": "2026-07-31",
-          "amount": 0.26,
-          "currency": "USD"
-        },
-        {
-          "exDate": "2025-11-24",
-          "recordDate": "",
-          "payDate": "2026-02-05",
-          "amount": 0.256702,
-          "currency": "USD"
-        },
-        {
-          "exDate": "2025-06-06",
-          "recordDate": "",
-          "payDate": "2025-08-01",
-          "amount": 0.23549,
-          "currency": "USD"
-        },
-        {
-          "exDate": "2024-11-22",
-          "recordDate": "",
-          "payDate": "2025-02-07",
-          "amount": 0.242309,
-          "currency": "USD"
-        },
-        {
-          "exDate": "2024-06-07",
-          "recordDate": "",
-          "payDate": "2024-08-02",
-          "amount": 0.468568,
-          "currency": "USD"
-        },
-        {
-          "exDate": "2023-11-22",
-          "recordDate": "",
-          "payDate": "2024-02-02",
-          "amount": 0.463955,
-          "currency": "USD"
-        },
-        {
-          "exDate": "2023-06-08",
-          "recordDate": "",
-          "payDate": "2023-08-04",
-          "amount": 0.4882,
-          "currency": "USD"
-        },
-        {
-          "exDate": "2022-11-23",
-          "recordDate": "",
-          "payDate": "2023-02-03",
-          "amount": 0.4658,
-          "currency": "USD"
-        },
-        {
-          "exDate": "2022-06-03",
-          "recordDate": "",
-          "payDate": "2022-08-05",
-          "amount": 0.472455,
-          "currency": "USD"
-        },
-        {
-          "exDate": "2021-11-24",
-          "recordDate": "",
-          "payDate": "2022-02-04",
-          "amount": 0.5142,
-          "currency": "USD"
-        },
-        {
-          "exDate": "2021-06-24",
-          "recordDate": "",
-          "payDate": "2021-08-06",
-          "amount": 0.537,
-          "currency": "USD"
-        }
-      ],
-      "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page; the source labels the cycle as estimated or unconfirmed."
     },
     "US:VOYA": {
       "company": "Voya Financial, Inc.",
@@ -138560,7 +137842,7 @@
       ],
       "note": "Upcoming qualification and payment dates scraped from the public DividendHistory.org payout page; the source labels the cycle as estimated or unconfirmed."
     },
-    "US:WTW": {
+    "UK:WTW": {
       "company": "Willis Towers Watson Public Limited Company",
       "sourceName": "StockAnalysis public dividend page",
       "sourceUrl": "https://stockanalysis.com/stocks/WTW/dividend/",
@@ -140275,7 +139557,7 @@
       ],
       "note": "Recent dividend history scraped from the public StockAnalysis dividend page; no future declared cycle was listed on the page."
     },
-    "Zimbabwe:BAT": {
+    "UK:BAT": {
       "company": "British American Tobacco Zimbabwe",
       "sourceName": "StockAnalysis public dividend page",
       "sourceUrl": "https://stockanalysis.com/quote/zmse/BAT/dividend/",
@@ -140317,7 +139599,7 @@
       ],
       "note": "Recent dividend history scraped from the public StockAnalysis dividend page; no future declared cycle was listed on the page."
     },
-    "Zimbabwe:CBZ": {
+    "US:CBZ": {
       "company": "CBZ Holdings",
       "sourceName": "StockAnalysis public dividend page",
       "sourceUrl": "https://stockanalysis.com/quote/zmse/CBZ/dividend/",
@@ -140471,7 +139753,7 @@
       ],
       "note": "Upcoming qualification, record, and payment dates scraped from the public StockAnalysis dividend page."
     },
-    "US:ZGN": {
+    "Europe:ZGN": {
       "company": "Ermenegildo Zegna N.V.",
       "sourceName": "DividendInvestor public dividend page",
       "sourceUrl": "https://www.dividendinvestor.com/dividend-history-detail/zgn/",
@@ -140520,7 +139802,7 @@
       ],
       "note": "Upcoming qualification, record, and payment dates scraped from the public DividendInvestor page."
     },
-    "Zimbabwe:DLTA": {
+    "US:DLTA": {
       "company": "Delta Corporation Zimbabwe",
       "sourceName": "StockAnalysis public dividend page",
       "sourceUrl": "https://stockanalysis.com/quote/zmse/DLTA/dividend/",
@@ -140599,104 +139881,6 @@
           "recordDate": "2021-06-25",
           "payDate": "2021-07-06",
           "amount": 1.04946,
-          "currency": "US cents"
-        }
-      ],
-      "note": "Recent dividend history scraped from the public StockAnalysis dividend page; no future declared cycle was listed on the page."
-    },
-    "Zimbabwe:ECO": {
-      "company": "Econet Wireless Zimbabwe",
-      "sourceName": "StockAnalysis public dividend page",
-      "sourceUrl": "https://stockanalysis.com/quote/zmse/ECO/dividend/",
-      "verifiedAt": "2026-05-05T12:31:25.970Z",
-      "qualificationDate": "2026-03-19",
-      "recordDate": "2026-03-20",
-      "paymentDate": "2026-03-25",
-      "amount": 1.9665,
-      "currency": "US cents",
-      "history": [
-        {
-          "exDate": "2026-03-19",
-          "recordDate": "2026-03-20",
-          "payDate": "2026-03-25",
-          "amount": 1.9665,
-          "currency": "US cents"
-        },
-        {
-          "exDate": "2025-12-31",
-          "recordDate": "2026-01-02",
-          "payDate": "2026-01-07",
-          "amount": 1.93401,
-          "currency": "US cents"
-        },
-        {
-          "exDate": "2025-09-18",
-          "recordDate": "2025-09-19",
-          "payDate": "2025-09-24",
-          "amount": 1.93401,
-          "currency": "US cents"
-        },
-        {
-          "exDate": "2025-06-19",
-          "recordDate": "2025-06-20",
-          "payDate": "2025-06-25",
-          "amount": 2.03146,
-          "currency": "US cents"
-        },
-        {
-          "exDate": "2025-03-19",
-          "recordDate": "2025-03-21",
-          "payDate": "2025-03-26",
-          "amount": 2.3538,
-          "currency": "US cents"
-        },
-        {
-          "exDate": "2024-12-18",
-          "recordDate": "2024-12-20",
-          "payDate": "2024-12-24",
-          "amount": 1.16191,
-          "currency": "US cents"
-        },
-        {
-          "exDate": "2024-09-18",
-          "recordDate": "2024-09-20",
-          "payDate": "2024-09-25",
-          "amount": 1.32183,
-          "currency": "US cents"
-        },
-        {
-          "exDate": "2024-07-03",
-          "recordDate": "2024-07-05",
-          "payDate": "2024-07-10",
-          "amount": 0.83957,
-          "currency": "US cents"
-        },
-        {
-          "exDate": "2024-03-26",
-          "recordDate": "2024-03-28",
-          "payDate": "2024-04-03",
-          "amount": 1.77409,
-          "currency": "US cents"
-        },
-        {
-          "exDate": "2021-12-08",
-          "recordDate": "2021-12-10",
-          "payDate": "2021-12-15",
-          "amount": 0.59969,
-          "currency": "US cents"
-        },
-        {
-          "exDate": "2021-08-18",
-          "recordDate": "2021-08-20",
-          "payDate": "2021-08-26",
-          "amount": 0.59969,
-          "currency": "US cents"
-        },
-        {
-          "exDate": "2021-04-21",
-          "recordDate": "2021-04-23",
-          "payDate": "2021-04-30",
-          "amount": 0.3998,
           "currency": "US cents"
         }
       ],

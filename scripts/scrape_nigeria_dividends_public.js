@@ -5,6 +5,7 @@ const path = require("path");
 const {
   fetchNgxPulseDividendTable,
   fetchNgxOfficialDisclosureSources,
+  fetchNairametricsDividendSources,
   dedupeSources
 } = require("../lib/nigeria-public-dividends");
 
@@ -71,9 +72,14 @@ async function main() {
   await runWithConcurrency(tickers, 4, async (ticker, index) => {
     if (index > 0) await sleep(120);
     const officialSources = await fetchNgxOfficialDisclosureSources(ticker).catch(() => []);
+    const nairametricsSources = await fetchNairametricsDividendSources(
+      ticker,
+      merged[ticker]?.company || "",
+      merged[ticker]
+    ).catch(() => []);
     merged[ticker] = {
       ...merged[ticker],
-      sources: dedupeSources(merged[ticker]?.sources || [], officialSources)
+      sources: dedupeSources(merged[ticker]?.sources || [], officialSources, nairametricsSources)
     };
   });
 
@@ -84,7 +90,7 @@ async function main() {
     sourceName: "Public Nigerian dividend pages",
     sourceUrl: pulse._meta?.sourceUrl || "",
     verifiedAt: new Date().toISOString().slice(0, 10),
-    note: `Scraped live Nigerian dividend pages for ${tickers.length} tracked rows and attached official NGX disclosure links where available.`
+    note: `Scraped live Nigerian dividend pages for ${tickers.length} tracked rows and attached official NGX disclosure plus Nairametrics evidence where available.`
   };
 
   const jsPayload = { _meta: meta, ...merged };

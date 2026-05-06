@@ -4,11 +4,19 @@
       "maxDuration": 10
     }
   },
+  "crons": [
+    {
+      "path": "/api/daily-stock-email",
+      "schedule": "0 8,9 * * *"
+    }
+  ],
   "rewrites": [
     { "source": "/api/admin-login", "destination": "/api/admin?action=login" },
     { "source": "/api/admin-session", "destination": "/api/admin?action=session" },
     { "source": "/api/admin-logout", "destination": "/api/admin?action=logout" },
     { "source": "/api/admin-users", "destination": "/api/admin?action=users" },
-    { "source": "/api/admin-user-action", "destination": "/api/admin?action=user-action" }
+    { "source": "/api/admin-user-action", "destination": "/api/admin?action=user-action" },
+    { "source": "/api/stock-of-day", "destination": "/api/admin?action=stock-of-day" },
+    { "source": "/api/daily-stock-email", "destination": "/api/admin?action=daily-stock-email" }
   ]
 }

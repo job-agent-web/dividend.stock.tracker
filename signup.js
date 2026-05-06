@@ -43,6 +43,8 @@ const appInstallLinks = [...document.querySelectorAll("[data-install-platform]")
 const appInstallStatus = document.querySelector("[data-install-status]");
 const usersStorageKey = "dividendRegisteredUsers";
 const rememberedSigninKey = "dividendRememberedSignin";
+const dailyStockPopupSeenKey = "dividendDailyStockPopupSeen";
+const pendingStockKeyStorageKey = "dividendPendingStockKey";
 const freeTrialDays = 7;
 const adminContactEmail = "dividendstocktracker@gmail.com";
 const otpMinutesValid = 10;
@@ -64,6 +66,51 @@ function isInstalledAppView() {
     window.matchMedia?.("(display-mode: fullscreen)")?.matches ||
     window.navigator?.standalone
   );
+}
+
+function isInstalledMobileView() {
+  const installed = isInstalledAppView()
+    || window.matchMedia?.("(display-mode: minimal-ui)")?.matches
+    || document.referrer.startsWith("android-app://");
+  const mobile = window.matchMedia?.("(pointer: coarse)")?.matches
+    || /Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent || "");
+  return Boolean(installed && mobile);
+}
+
+function londonDateParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  return {
+    dateKey: `${values.year}-${values.month}-${values.day}`,
+    hour: Number(values.hour || 0)
+  };
+}
+
+function currentRequestedStockKey() {
+  const params = new URLSearchParams(window.location.search);
+  return String(params.get("stock") || localStorage.getItem(pendingStockKeyStorageKey) || "").trim();
+}
+
+function cameFromStockOfDayLink() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("from") === "stock-of-day";
+}
+
+function stockQuerySuffix() {
+  const params = new URLSearchParams();
+  const key = currentRequestedStockKey();
+  if (key) params.set("stock", key);
+  if (cameFromStockOfDayLink()) params.set("from", "stock-of-day");
+  const query = params.toString();
+  return query ? `?${query}` : "";
 }
 
 function shouldShowInstallCard() {
@@ -146,11 +193,81 @@ function looksLikeSha256(value) {
 }
 
 function mainPageUrl() {
-  return "index.html";
+  return `index.html${stockQuerySuffix()}`;
 }
 
 function signinPageUrl() {
-  return "signin.html";
+  return `signin.html${stockQuerySuffix()}`;
+}
+
+async function maybeShowNativeDailyStockNotification(payload) {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  const title = `Stock of the day: ${payload.stock.ticker}`;
+  const body = `${payload.stock.name} · ${payload.stock.signal} · Score ${payload.score}/100`;
+  const tag = `dividend-stock-day-${payload.dateKey}`;
+  try {
+    if ("serviceWorker" in navigator) {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification(title, {
+        body,
+        tag,
+        renotify: false,
+        data: { url: payload.linkUrl || `${window.location.origin}/signin.html?stock=${encodeURIComponent(payload.key)}&from=stock-of-day` }
+      });
+      return;
+    }
+  } catch {}
+  try {
+    new Notification(title, { body, tag });
+  } catch {}
+}
+
+function closeDailyStockPopup() {
+  document.querySelector("#dailyStockPopup")?.remove();
+}
+
+function showDailyStockPopup(payload) {
+  closeDailyStockPopup();
+  const popup = document.createElement("div");
+  popup.id = "dailyStockPopup";
+  popup.className = "daily-stock-popup";
+  popup.innerHTML = `
+    <div class="daily-stock-popup-card" role="dialog" aria-modal="false" aria-label="Stock of the day">
+      <button class="daily-stock-popup-close" type="button" aria-label="Close stock of the day popup">Close</button>
+      <p class="daily-stock-popup-kicker">Stock of the day · ${payload.dateLabel}</p>
+      <h3>${payload.stock.ticker} · ${payload.stock.name}</h3>
+      <p class="daily-stock-popup-meta">${payload.stock.market} · ${payload.stock.signal} · Score ${payload.score}/100</p>
+      <p class="daily-stock-popup-copy">${payload.reason}</p>
+      <div class="daily-stock-popup-actions">
+        <button class="primary-button daily-stock-open" type="button">Keep for sign in</button>
+        <button class="ghost-button daily-stock-save" type="button">Dismiss</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(popup);
+  popup.querySelector(".daily-stock-popup-close")?.addEventListener("click", closeDailyStockPopup);
+  popup.querySelector(".daily-stock-save")?.addEventListener("click", closeDailyStockPopup);
+  popup.querySelector(".daily-stock-open")?.addEventListener("click", () => {
+    localStorage.setItem(pendingStockKeyStorageKey, payload.key);
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.set("stock", payload.key);
+    window.history.replaceState({}, "", `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`);
+    setAppInstallStatus("Today's stock is ready. Sign in to open its chart and details.");
+    closeDailyStockPopup();
+  });
+}
+
+async function maybeShowDailyStockPopup() {
+  if (window.location.protocol === "file:" || !isInstalledMobileView()) return;
+  const london = londonDateParts();
+  if (london.hour < 9) return;
+  if (localStorage.getItem(dailyStockPopupSeenKey) === london.dateKey) return;
+  const response = await fetch("/api/stock-of-day", { cache: "no-store" }).catch(() => null);
+  const data = response?.ok ? await response.json().catch(() => null) : null;
+  if (!data?.ok || !data?.stock || !data?.key) return;
+  localStorage.setItem(dailyStockPopupSeenKey, london.dateKey);
+  showDailyStockPopup(data);
+  await maybeShowNativeDailyStockNotification(data);
 }
 
 function showAccessMessage() {
@@ -162,7 +279,18 @@ function showAccessMessage() {
     messageTarget.classList.toggle("error", message.includes("expired"));
   }
   if (signinOpenPayment) signinOpenPayment.hidden = !message.includes("expired");
+  if (signinForm && message.includes("expired")) {
+    const storedUser = readJson("dividendProfileUser", null);
+    const accessUser = storedUser ? ensureAccessFields(storedUser) : null;
+    showSigninPaymentModal(accessUser);
+  }
   localStorage.removeItem("dividendAccessMessage");
+}
+
+function expiredStockOfDayMessage() {
+  return cameFromStockOfDayLink()
+    ? "Your plan has expired. Please pay before you can open today's stock or access the platform."
+    : "Your access has expired. Please choose a plan below to regain access.";
 }
 
 function readJson(key, fallback) {
@@ -232,6 +360,29 @@ function loadRememberedSigninDetails() {
   signinIdentity.value = saved.identity;
   signinPassword.value = saved.password;
   rememberSigninDetails.checked = true;
+}
+
+function maybePromptExpiredStockOfDayAccess() {
+  if (!signinForm || !cameFromStockOfDayLink()) return;
+  const storedUser = readJson("dividendProfileUser", null);
+  if (storedUser?.email || storedUser?.username) {
+    const accessUser = ensureAccessFields(storedUser);
+    if (daysLeftForUser(accessUser) <= 0) {
+      if (accessUser.email && !signinIdentity?.value) signinIdentity.value = accessUser.email;
+      showExpiredPlanGate(accessUser);
+      return;
+    }
+  }
+
+  const saved = readJson(rememberedSigninKey, null);
+  if (!saved?.identity) return;
+  const rememberedUser = findRegisteredUser(saved.identity);
+  if (!rememberedUser) return;
+  const accessUser = ensureAccessFields(rememberedUser);
+  if (daysLeftForUser(accessUser) <= 0) {
+    if (!signinIdentity?.value) signinIdentity.value = saved.identity;
+    showExpiredPlanGate(accessUser);
+  }
 }
 
 function saveRememberedSigninDetails(identity, password) {
@@ -377,6 +528,16 @@ function accessLabel(user) {
   if (days === Infinity) return "Lifetime access";
   if (days <= 0) return "Expired";
   return `${days} ${days === 1 ? "day" : "days"} left`;
+}
+
+function showExpiredPlanGate(user = null, message = expiredStockOfDayMessage()) {
+  paymentModalUser = user || paymentModalUser;
+  if (signinMessage) {
+    signinMessage.classList.add("error");
+    signinMessage.textContent = message;
+  }
+  if (signinOpenPayment) signinOpenPayment.hidden = false;
+  showSigninPaymentModal(user || paymentModalUser);
 }
 
 function showSigninPaymentModal(user) {
@@ -696,8 +857,7 @@ signinForm?.addEventListener("submit", async (event) => {
       signinMessage.textContent = cleanAuthMessage(data?.message || data?.reason, "Could not sign in right now.");
       signinMessage.classList.add("error");
       if (data?.expired && data?.user) {
-        if (signinOpenPayment) signinOpenPayment.hidden = false;
-        showSigninPaymentModal(data.user);
+        showExpiredPlanGate(data.user);
       } else if (signinOpenPayment) {
         signinOpenPayment.hidden = true;
       }
@@ -756,10 +916,7 @@ signinForm?.addEventListener("submit", async (event) => {
   }
 
   if (daysLeftForUser(accessUser) <= 0) {
-    signinMessage.textContent = "Your access has expired. Please choose a plan below to regain access.";
-    signinMessage.classList.add("error");
-    if (signinOpenPayment) signinOpenPayment.hidden = false;
-    showSigninPaymentModal(accessUser);
+    showExpiredPlanGate(accessUser);
     return;
   }
 
@@ -1019,3 +1176,5 @@ syncInstallCardVisibility();
 registerAppServiceWorker();
 showAccessMessage();
 loadRememberedSigninDetails();
+maybePromptExpiredStockOfDayAccess();
+maybeShowDailyStockPopup();

@@ -1,4 +1,4 @@
-const cacheName = "dividend-stock-tracker-v3";
+const cacheName = "dividend-stock-tracker-v5";
 const coreAssets = [
   "signin.html",
   "signup.html",
@@ -8,6 +8,7 @@ const coreAssets = [
   "app.js",
   "pwa-updates.js",
   "online-dividend-universe.js",
+  "verified-rsi-cache.js",
   "manifest.webmanifest",
   "app-icon.svg"
 ];
@@ -37,5 +38,24 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(
     fetch(event.request).catch(() => caches.match(event.request).then((cached) => cached || caches.match("signin.html")))
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = event.notification?.data?.url || "/signin.html";
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ("focus" in client) {
+          client.navigate?.(targetUrl);
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+      return null;
+    })
   );
 });

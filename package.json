@@ -1,5 +1,8 @@
 {
   "scripts": {
+    "build:verified-rsi": "node scripts/build_verified_rsi_cache.js",
+    "normalize:market-buckets": "node scripts/remap_market_buckets.js",
+    "rebuild:online-universe": "node scripts/rebuild_online_dividend_universe.js",
     "update:all-dividends": "npm run update:nigeria-dividends && npm run update:market-dividends",
     "update:nigeria-dividends": "node scripts/scrape_nigeria_dividends_public.js",
     "update:market-dividends": "node scripts/scrape_market_dividends.js"

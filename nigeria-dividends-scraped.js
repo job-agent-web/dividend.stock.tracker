@@ -2,8 +2,8 @@ window.NIGERIA_DIVIDEND_UPDATES = {
   "_meta": {
     "sourceName": "Public Nigerian dividend pages",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
-    "note": "Scraped live Nigerian dividend pages for 34 tracked rows and attached official NGX disclosure links where available."
+    "verifiedAt": "2026-05-06",
+    "note": "Scraped live Nigerian dividend pages for 34 tracked rows and attached official NGX disclosure plus Nairametrics evidence where available."
   },
   "VITAFOAM": {
     "company": "Vitafoam Nigeria PLC",
@@ -17,7 +17,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "note": "Bonus issue: 1 for 5",
     "history": [
       {
@@ -53,6 +53,16 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: VITAFOAM NIG PLC.- NOTICES OF ANNUAL GENERAL MEETING (AGM) -",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/45961_VITAFOAM_NIG_PLC.-_NOTICES_OF_ANNUAL_GENERAL_MEETING_(AGM)_-__ANNUAL_GENERAL_MEETING_(AGM)_FEBRUARY_2026.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -68,7 +78,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "note": "",
     "history": [
       {
@@ -104,6 +114,21 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: THE INITIATES PLC- AUDITED FINANCIAL STATEMENTS FOR THE YEAR ENDED 31 DECEMBER 2025",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46455_THE_INITIATES_PLC-_QUARTER_5_-_FINANCIAL_STATEMENT_FOR_2025_FINANCIAL_STATEMENTS_MARCH_2026.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics: See 18 NGX-listed companies paying dividends in May 2026",
+        "url": "https://nairametrics.com/2026/05/05/see-18-ngx-listed-companies-paying-dividends-in-may-2026/",
+        "confidence": 68
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -142,12 +167,22 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: UNITED CAPITAL PLC- NOTICE OF ANNUAL GENERAL MEETING (AGM)",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46593_UNITED_CAPITAL_PLC-_NOTICES_OF_ANNUAL_GENERAL_MEETING_(AGM)_-__ANNUAL_GENERAL_MEETING_(AGM)_APRIL_2026.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ],
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "history": [
       {
         "exDate": "2026-04-07",
@@ -193,12 +228,27 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: MTN NIGERIA COMMUNICATIONS PLC- QUARTER 1 - FINANCIAL STATEMENT FOR 2026",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46852_MTN_NIGERIA_COMMUNICATIONS_PLC-_QUARTER_1_-_FINANCIAL_STATEMENT_FOR_2026_FINANCIAL_STATEMENTS_APRIL_2026.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics: See 18 NGX-listed companies paying dividends in May 2026",
+        "url": "https://nairametrics.com/2026/05/05/see-18-ngx-listed-companies-paying-dividends-in-may-2026/",
+        "confidence": 68
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ],
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "history": [
       {
         "exDate": "2026-04-08",
@@ -249,6 +299,16 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: NIGERIAN EXCHANGE GROUP PLC- NOTICES OF ANNUAL GENERAL MEETING (AGM) -",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46604_NIGERIAN_EXCHANGE_GROUP_PLC-_NOTICES_OF_ANNUAL_GENERAL_MEETING_(AGM)_-__ANNUAL_GENERAL_MEETING_(AGM)_APRIL_2026.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ],
     "currency": "NGN",
@@ -305,7 +365,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "note": "",
     "history": [
       {
@@ -341,6 +401,21 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: UNILEVER NIGERIA PLC.- NOTICE OF ANNUAL GENERAL MEETING (AGM)",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46388_UNILEVER_NIGERIA_PLC.-_NOTICES_OF_ANNUAL_GENERAL_MEETING_(AGM)_-__ANNUAL_GENERAL_MEETING_(AGM)_MARCH_2026.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics: See 18 NGX-listed companies paying dividends in May 2026",
+        "url": "https://nairametrics.com/2026/05/05/see-18-ngx-listed-companies-paying-dividends-in-may-2026/",
+        "confidence": 68
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -357,7 +432,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "history": [
       {
         "exDate": "2026-04-13",
@@ -392,6 +467,16 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: GUARANTY TRUST HOLDING COMPANY PLC- NOTICE OF ANNUAL GENERAL MEETING (AGM)",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46571_GUARANTY_TRUST_HOLDING_COMPANY_PLC-_NOTICES_OF_ANNUAL_GENERAL_MEETING_(AGM)_-__ANNUAL_GENERAL_MEETING_(AGM)_APRIL_2026.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -407,7 +492,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "note": "",
     "history": [
       {
@@ -443,6 +528,16 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: GEREGU POWER PLC-NOTICE OF CHANGE OF REGISTERED ADDRESS",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46302_GEREGU_POWER_PLC-NOTICE_OF_CHANGE_OF_REGISTERED_ADDRESS_CORPORATE_ACTIONS_MARCH_2026.pdf",
         "confidence": 97
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -459,7 +554,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "history": [
       {
         "exDate": "2026-04-13",
@@ -494,6 +589,16 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: TRANSCORP POWER PLC-TRANSCORP POWER PLC - Q2, 2026 POST BOARD MEETING NOTIFICATION",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46746_TRANSCORP_POWER_PLC-TRANSCORP_POWER_PLC_-_Q2,_2026_POST_BOARD_MEETING_NOTIFICATION_CORPORATE_ACTIONS_APRIL_2026.pdf",
         "confidence": 89
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -509,7 +614,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "note": "",
     "history": [
       {
@@ -545,6 +650,21 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: CUSTODIAN INVESTMENT PLC- AUDITED FINANCIAL STATEMENTS FOR THE YEAR ENDED 31 DECEMBER 2025",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46537_CUSTODIAN_INVESTMENT_PLC-_QUARTER_5_-_FINANCIAL_STATEMENT_FOR_2025_FINANCIAL_STATEMENTS_APRIL_2026.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics: See 18 NGX-listed companies paying dividends in May 2026",
+        "url": "https://nairametrics.com/2026/05/05/see-18-ngx-listed-companies-paying-dividends-in-may-2026/",
+        "confidence": 68
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -560,7 +680,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "note": "",
     "history": [
       {
@@ -596,6 +716,16 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: FIDSON HEALTHCARE PLC-CORPORATE GOVERNANCE RETURN FOR 2025 FINANCIAL YEAR",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46223_FIDSON_HEALTHCARE_PLC-CORPORATE_GOVERNANCE_RETURN_FOR_2025_FINANCIAL_YEAR_CORPORATE_ACTIONS_MARCH_2026.pdf",
         "confidence": 89
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -611,7 +741,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "agmDate": "",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "note": "",
     "history": [
       {
@@ -647,6 +777,16 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: GUINNESS NIG PLC- QUARTER 1 - FINANCIAL STATEMENT FOR 2026",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46652_GUINNESS_NIG_PLC-_QUARTER_1_-_FINANCIAL_STATEMENT_FOR_2026_FINANCIAL_STATEMENTS_APRIL_2026.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -683,13 +823,23 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: MECURE INDUSTRIES PLC - AUDITED FINANCIAL STATEMENTS FOR THE YEAR ENDED 31 DECEMBER 2025",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/Mecure_-_2025_AFS.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ],
     "currency": "NGN",
     "paymentDate": "",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "agmDate": "",
     "history": [
       {
@@ -714,7 +864,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "history": [
       {
         "exDate": "2026-04-23",
@@ -749,6 +899,21 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: BERGER PAINTS NIGERIA PLC- AUDITED FINANCIAL STATEMENTS FOR THE YEAR ENDED 31 DECEMBER 2025",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46449_BERGER_PAINTS_NIGERIA_PLC-_QUARTER_5_-_FINANCIAL_STATEMENT_FOR_2025_FINANCIAL_STATEMENTS_MARCH_2026.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics: See 18 NGX-listed companies paying dividends in May 2026",
+        "url": "https://nairametrics.com/2026/05/05/see-18-ngx-listed-companies-paying-dividends-in-may-2026/",
+        "confidence": 68
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -765,7 +930,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "history": [
       {
         "exDate": "2026-04-24",
@@ -800,6 +965,21 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: ZENITH BANK PLC- NOTICE OF ANNUAL GENERAL MEETING (AGM)",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46630_ZENITH_BANK_PLC-_NOTICES_OF_ANNUAL_GENERAL_MEETING_(AGM)_-__ANNUAL_GENERAL_MEETING_(AGM)_APRIL_2026.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics: See 18 NGX-listed companies paying dividends in May 2026",
+        "url": "https://nairametrics.com/2026/05/05/see-18-ngx-listed-companies-paying-dividends-in-may-2026/",
+        "confidence": 68
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -815,7 +995,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "note": "",
     "history": [
       {
@@ -851,6 +1031,21 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: OKOMU OIL PALM PLC. - AUDITED FINANCIAL STATEMENTS FOR THE YEAR ENDED 31 DECEMBER 2025",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46405_OKOMU_OIL_PALM_PLC.-_QUARTER_5_-_FINANCIAL_STATEMENT_FOR_2025_FINANCIAL_STATEMENTS_MARCH_2026.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics: See 18 NGX-listed companies paying dividends in May 2026",
+        "url": "https://nairametrics.com/2026/05/05/see-18-ngx-listed-companies-paying-dividends-in-may-2026/",
+        "confidence": 68
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -866,7 +1061,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "note": "",
     "history": [
       {
@@ -902,6 +1097,21 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: TRANSNATIONAL CORPORATION PLC- NOTICE OF ANNUAL GENERAL MEETING (AGM)",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46621_TRANSNATIONAL_CORPORATION_PLC-_NOTICES_OF_ANNUAL_GENERAL_MEETING_(AGM)_-__ANNUAL_GENERAL_MEETING_(AGM)_APRIL_2026.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics: See 18 NGX-listed companies paying dividends in May 2026",
+        "url": "https://nairametrics.com/2026/05/05/see-18-ngx-listed-companies-paying-dividends-in-may-2026/",
+        "confidence": 68
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -917,7 +1127,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "note": "",
     "history": [
       {
@@ -953,6 +1163,21 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: WEMA BANK PLC.-NOTICE OF CLOSED PERIOD",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46594_WEMA_BANK_PLC.-NOTICE_OF_CLOSED_PERIOD_CORPORATE_ACTIONS_APRIL_2026.pdf",
         "confidence": 89
+      },
+      {
+        "name": "Nairametrics: See 18 NGX-listed companies paying dividends in May 2026",
+        "url": "https://nairametrics.com/2026/05/05/see-18-ngx-listed-companies-paying-dividends-in-may-2026/",
+        "confidence": 68
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -969,7 +1194,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "history": [
       {
         "exDate": "2026-05-01",
@@ -1004,6 +1229,21 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: NIGERIAN AVIATION HANDLING COMPANY PLC - AUDITED FINANCIAL STATEMENTS FOR THE YEAR ENDED 31 DECEMBER 2025",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46503_NIGERIAN_AVIATION_HANDLING_COMPANY_PLC-_QUARTER_5_-_FINANCIAL_STATEMENT_FOR_2025_FINANCIAL_STATEMENTS_MARCH_2026.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics: See 18 NGX-listed companies paying dividends in May 2026",
+        "url": "https://nairametrics.com/2026/05/05/see-18-ngx-listed-companies-paying-dividends-in-may-2026/",
+        "confidence": 68
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -1036,13 +1276,28 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: BUA CEMENT PLC-CORPORATE DISCLOSURE",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46158_BUA_CEMENT_PLC-CORPORATE_DISCLOSURE_CORPORATE_ACTIONS_MARCH_2026.pdf",
         "confidence": 97
+      },
+      {
+        "name": "Nairametrics: See 18 NGX-listed companies paying dividends in May 2026",
+        "url": "https://nairametrics.com/2026/05/05/see-18-ngx-listed-companies-paying-dividends-in-may-2026/",
+        "confidence": 68
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ],
     "currency": "NGN",
     "note": "",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "history": [
       {
         "exDate": "2026-05-08",
@@ -1066,7 +1321,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "history": [
       {
         "exDate": "2026-05-04",
@@ -1101,6 +1356,21 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: STANBIC IBTC HOLDINGS PLC - AUDITED FINANCIAL STATEMENTS FOR THE YEAR ENDED 31 DECEMBER 2025",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46694_STANBIC_IBTC__HOLDINGS_PLC-_QUARTER_5_-_FINANCIAL_STATEMENT_FOR_2025_FINANCIAL_STATEMENTS_APRIL_2026.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics: See 18 NGX-listed companies paying dividends in May 2026",
+        "url": "https://nairametrics.com/2026/05/05/see-18-ngx-listed-companies-paying-dividends-in-may-2026/",
+        "confidence": 68
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -1118,7 +1388,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "note": "Special dividend: US$0.033",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "history": [
       {
         "exDate": "2026-05-15",
@@ -1153,6 +1423,21 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: SEPLAT ENERGY PLC- NOTICE OF ANNUAL GENERAL MEETING",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46699_SEPLAT_ENERGY_PLC-_NOTICES_OF_ANNUAL_GENERAL_MEETING_(AGM)_-__ANNUAL_GENERAL_MEETING_(AGM)_APRIL_2026.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics: See 18 NGX-listed companies paying dividends in May 2026",
+        "url": "https://nairametrics.com/2026/05/05/see-18-ngx-listed-companies-paying-dividends-in-may-2026/",
+        "confidence": 68
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -1168,7 +1453,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "note": "",
     "history": [
       {
@@ -1204,6 +1489,16 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: AIICO INSURANCE PLC.-AIICO NCCG REPORT 2025",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46300_AIICO_INSURANCE_PLC.-AIICO_NCCG_REPORT_2025_CORPORATE_ACTIONS_MARCH_2026.pdf",
         "confidence": 89
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -1241,13 +1536,23 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: NASCON ALLIED INDUSTRIES PLC-FRC CORPORATE GOVERNANCE REPORT 2025",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46293_NASCON_ALLIED_INDUSTRIES_PLC-FRC_CORPORATE_GOVERNANCE_REPORT_2025_CORPORATE_ACTIONS_MARCH_2026.pdf",
         "confidence": 89
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ],
     "currency": "NGN",
     "note": "",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "history": [
       {
         "exDate": "2026-04-01",
@@ -1270,7 +1575,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "note": "",
     "history": [
       {
@@ -1288,6 +1593,11 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "confidence": 84
       },
       {
+        "name": "NGX official disclosure: LAFARGE AFRICA PLC.-LAFARGE AFRICA PLC - 2026 AGM RESOLUTION",
+        "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46954_LAFARGE_AFRICA_PLC.-LAFARGE_AFRICA_PLC_-_2026_AGM_RESOLUTION_CORPORATE_ACTIONS_MAY_2026.pdf",
+        "confidence": 95
+      },
+      {
         "name": "NGX official disclosure: LAFARGE AFRICA PLC.-PRESS RELEASE",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46845_LAFARGE_AFRICA_PLC.-PRESS_RELEASE_CORPORATE_ACTIONS_APRIL_2026.pdf",
         "confidence": 89
@@ -1303,9 +1613,14 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "confidence": 95
       },
       {
-        "name": "NGX official disclosure: LAFARGE AFRICA PLC.- NOTICES OF ANNUAL GENERAL MEETING (AGM) -",
-        "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46610_LAFARGE_AFRICA_PLC.-_NOTICES_OF_ANNUAL_GENERAL_MEETING_(AGM)_-__ANNUAL_GENERAL_MEETING_(AGM)_APRIL_2026.pdf",
-        "confidence": 95
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -1321,7 +1636,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "note": "",
     "history": [
       {
@@ -1357,6 +1672,16 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: BETA GLASS PLC - AUDITED FINANCIAL STATEMENTS FOR THE YEAR ENDED 31 DECEMBER 2025",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46531_BETA_GLASS_PLC-_QUARTER_5_-_FINANCIAL_STATEMENT_FOR_2025_FINANCIAL_STATEMENTS_APRIL_2026.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -1372,7 +1697,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "currency": "NGN",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "note": "",
     "history": [
       {
@@ -1408,6 +1733,16 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: BUA FOODS PLC-2025 NCCG REPORT",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46393_BUA_FOODS_PLC-2025_NCCG_REPORT_CORPORATE_ACTIONS_MARCH_2026.pdf",
         "confidence": 89
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -1440,6 +1775,16 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: UAC OF NIGERIA PLC.-EARNINGS RELEASE",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46412_UAC__OF_NIGERIA_PLC.-EARNINGS_RELEASE_CORPORATE_ACTIONS_MARCH_2026.pdf",
         "confidence": 89
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ],
     "history": []
@@ -1478,13 +1823,23 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: DANGOTE CEMENT PLC-DIVIDEND ANNOUNCEMENT",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46167_DANGOTE_CEMENT_PLC-DIVIDEND_ANNOUNCEMENT_CORPORATE_ACTIONS_MARCH_2026.pdf",
         "confidence": 97
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ],
     "currency": "NGN",
     "note": "",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "history": [
       {
         "exDate": "2026-06-17",
@@ -1524,6 +1879,16 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: E-TRANZACT INTERNATIONAL PLC- YEAR END - FINANCIAL STATEMENT FOR 2025",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/45928_E-TRANZACT_INTERNATIONAL_PLC-_YEAR_END_-_FINANCIAL_STATEMENT_FOR_2025_FINANCIAL_STATEMENTS_JANUARY_2026.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ],
     "history": []
@@ -1540,7 +1905,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "registrar": "Africa Prudential",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "note": "",
     "history": [
       {
@@ -1556,6 +1921,16 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX Pulse 2026 dividend table",
         "url": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
         "confidence": 84
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -1571,7 +1946,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "registrar": "Feb 27, 2026",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "note": "₦9.7192. Special dividend: Distribution",
     "history": [
       {
@@ -1607,6 +1982,16 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: AFRICA PRUDENTIAL PLC-NEW FINANCE MANAGER",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46265_AFRICA_PRUDENTIAL_PLC-NEW_FINANCE_MANAGER_CORPORATE_ACTIONS_MARCH_2026.pdf",
         "confidence": 89
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -1622,7 +2007,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "registrar": "TBA",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "note": "Special dividend: TBA",
     "history": [
       {
@@ -1658,6 +2043,16 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: ACCESS HOLDINGS PLC - UPDATE ON THE PUBLICATION OF THE AUDITED FINANCIAL STATEMENTS FOR THE YEAR ENDED 31 DECEMBER 2025",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/ACCESS_HOLDINGS_PLC_-_STATEMENT_TO_NGX_ON_APRIL_21_2026.pdf",
         "confidence": 95
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   },
@@ -1673,7 +2068,7 @@ window.NIGERIA_DIVIDEND_UPDATES = {
     "registrar": "TBA",
     "sourceName": "NGX Pulse 2026 dividend table",
     "sourceUrl": "https://ngxpulse.ng/blog/dividends-declared-2026-nigerian-companies",
-    "verifiedAt": "2026-05-05",
+    "verifiedAt": "2026-05-06",
     "note": "Special dividend: TBA",
     "history": [
       {
@@ -1709,6 +2104,16 @@ window.NIGERIA_DIVIDEND_UPDATES = {
         "name": "NGX official disclosure: UNITED BANK FOR AFRICA PLC-NOTICE OF CHANGE OF DATE OF BOARD MEETING",
         "url": "https://doclib.ngxgroup.com/Financial_NewsDocs/46725_UNITED_BANK_FOR_AFRICA_PLC-NOTICE_OF_CHANGE_OF_DATE_OF_BOARD_MEETING_CORPORATE_ACTIONS_APRIL_2026.pdf",
         "confidence": 89
+      },
+      {
+        "name": "Nairametrics dividends table",
+        "url": "https://nairametrics.com/dividends-table/",
+        "confidence": 58
+      },
+      {
+        "name": "Nairametrics dividend coverage archive",
+        "url": "https://nairametrics.com/tag/dividends/",
+        "confidence": 52
       }
     ]
   }

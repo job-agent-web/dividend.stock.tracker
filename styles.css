@@ -79,10 +79,9 @@ body[data-theme="dark"] {
 }
 
 .topbar {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(320px, 540px) minmax(220px, 1fr);
+  align-items: center;
   gap: 24px;
   padding: 30px clamp(16px, 4vw, 48px) 24px;
   border-bottom: 1px solid rgba(215, 226, 234, 0.86);
@@ -94,6 +93,11 @@ body[data-theme="dark"] {
   top: 0;
   z-index: 10;
   box-shadow: 0 14px 36px rgba(17, 24, 39, 0.06);
+}
+
+.topbar-brand {
+  justify-self: start;
+  min-width: 0;
 }
 
 .theme-toggle,
@@ -162,9 +166,19 @@ body[data-theme="dark"] {
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
+  justify-content: flex-end;
+  justify-self: end;
+}
+
+.topbar-stock-of-day {
+  justify-self: center;
+  width: fit-content;
+  max-width: min(100%, 34rem);
+  margin: 0;
 }
 
 .topbar-panes {
+  grid-column: 1 / -1;
   flex: 1 0 100%;
   display: grid;
   grid-template-columns: repeat(8, minmax(104px, 1fr));
@@ -354,6 +368,7 @@ body[data-theme="dark"] textarea,
 body[data-theme="dark"] .country-dropdown summary,
 body[data-theme="dark"] .market-dropdown summary,
 body[data-theme="dark"] .country-menu,
+body[data-theme="dark"] .stock-of-day-button,
 body[data-theme="dark"] .stock-list,
 body[data-theme="dark"] .detail-panel,
 body[data-theme="dark"] .youtube-learning,
@@ -375,10 +390,47 @@ body[data-theme="dark"] .metric,
 body[data-theme="dark"] .platform,
 body[data-theme="dark"] .contact-modal-card,
 body[data-theme="dark"] .admin-table-card,
+body[data-theme="dark"] .daily-stock-popup-card,
 body[data-theme="dark"] .chart-tooltip {
   border-color: var(--line);
   background: linear-gradient(180deg, rgba(18, 31, 51, 0.98), rgba(13, 24, 42, 0.98));
   color: var(--ink);
+}
+
+body[data-theme="dark"] select,
+body[data-theme="dark"] .controls select,
+body[data-theme="dark"] .list-sort select {
+  color-scheme: dark;
+  background-color: #0f1b2e !important;
+  background-image: none !important;
+  color: #f8fafc !important;
+}
+
+body[data-theme="dark"] select option,
+body[data-theme="dark"] select optgroup,
+body[data-theme="dark"] .controls select option,
+body[data-theme="dark"] .controls select optgroup,
+body[data-theme="dark"] .list-sort select option,
+body[data-theme="dark"] .list-sort select optgroup {
+  background: #0f1b2e !important;
+  background-color: #0f1b2e !important;
+  color: #f8fafc !important;
+}
+
+body[data-theme="dark"] select option:checked,
+body[data-theme="dark"] .controls select option:checked,
+body[data-theme="dark"] .list-sort select option:checked {
+  background: #245fc7 !important;
+  background-color: #245fc7 !important;
+  color: #ffffff !important;
+}
+
+body[data-theme="dark"] select option:disabled,
+body[data-theme="dark"] .controls select option:disabled,
+body[data-theme="dark"] .list-sort select option:disabled {
+  background: #0f1b2e !important;
+  background-color: #0f1b2e !important;
+  color: rgba(203, 213, 225, 0.54) !important;
 }
 
 body[data-theme="dark"] .topbar-pane-panel {
@@ -434,6 +486,25 @@ body[data-theme="dark"] .alert-count-badge {
   box-shadow: 0 8px 18px rgba(239, 68, 68, 0.24);
 }
 
+body[data-theme="dark"] .stock-of-day-button:hover,
+body[data-theme="dark"] .stock-of-day-button:focus-visible {
+  background:
+    linear-gradient(90deg, rgba(20, 184, 166, 0.16), rgba(59, 130, 246, 0.13)),
+    rgba(16, 27, 45, 0.98);
+}
+
+body[data-theme="dark"] .stock-of-day-action {
+  border-color: rgba(147, 197, 253, 0.18);
+  background: rgba(30, 64, 175, 0.24);
+  color: #bfdbfe;
+}
+
+body[data-theme="dark"] .daily-stock-popup-close {
+  border-color: rgba(147, 197, 253, 0.16);
+  background: rgba(15, 23, 42, 0.82);
+  color: #cbd5e1;
+}
+
 body[data-theme="dark"] .add-portfolio-button {
   border-color: rgba(94, 234, 212, 0.24);
   background: linear-gradient(180deg, rgba(6, 95, 70, 0.32), rgba(15, 118, 110, 0.22));
@@ -450,6 +521,34 @@ body[data-theme="dark"] .score-pill {
 body[data-theme="dark"] .chip,
 body[data-theme="dark"] .signal {
   box-shadow: none;
+}
+
+body[data-theme="dark"] .chip:not(.buy):not(.hold):not(.sell),
+body[data-theme="dark"] .signal:not(.buy):not(.hold):not(.sell) {
+  border-color: rgba(147, 197, 253, 0.24);
+  background: linear-gradient(180deg, rgba(20, 34, 56, 0.96), rgba(15, 23, 42, 0.92));
+  color: #e2e8f0;
+}
+
+body[data-theme="dark"] .signal.buy,
+body[data-theme="dark"] .chip.buy {
+  border-color: rgba(110, 231, 183, 0.34);
+  background: linear-gradient(180deg, rgba(6, 95, 70, 0.42), rgba(6, 78, 59, 0.34));
+  color: #bbf7d0;
+}
+
+body[data-theme="dark"] .signal.hold,
+body[data-theme="dark"] .chip.hold {
+  border-color: rgba(251, 191, 36, 0.36);
+  background: linear-gradient(180deg, rgba(146, 64, 14, 0.42), rgba(120, 53, 15, 0.34));
+  color: #fde68a;
+}
+
+body[data-theme="dark"] .signal.sell,
+body[data-theme="dark"] .chip.sell {
+  border-color: rgba(252, 165, 165, 0.34);
+  background: linear-gradient(180deg, rgba(127, 29, 29, 0.44), rgba(99, 24, 24, 0.34));
+  color: #fecaca;
 }
 
 body[data-theme="dark"] .stock-list {
@@ -479,22 +578,42 @@ body[data-theme="dark"] .stock-button .chip:not(.buy):not(.hold):not(.sell) {
   color: #cbd5e1;
 }
 
+body[data-theme="dark"] .stock-button .meta .chip,
+body[data-theme="dark"] .stock-button .signal-price .chip {
+  box-shadow: none;
+}
+
+body[data-theme="dark"] .stock-button .meta .chip:not(.buy):not(.hold):not(.sell) {
+  border-color: rgba(148, 163, 184, 0.24) !important;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.96)) !important;
+  color: #f8fafc !important;
+}
+
+body[data-theme="dark"] .stock-button .signal-price .chip.buy,
+body[data-theme="dark"] .stock-button .signal-price .chip.hold,
+body[data-theme="dark"] .stock-button .signal-price .chip.sell,
+body[data-theme="dark"] .stock-button .meta .chip.buy,
+body[data-theme="dark"] .stock-button .meta .chip.hold,
+body[data-theme="dark"] .stock-button .meta .chip.sell {
+  font-weight: 800;
+}
+
 body[data-theme="dark"] .stock-button .chip.buy {
-  border-color: rgba(110, 231, 183, 0.32);
-  background: rgba(6, 95, 70, 0.32);
-  color: #86efac;
+  border-color: rgba(110, 231, 183, 0.32) !important;
+  background: rgba(6, 95, 70, 0.32) !important;
+  color: #86efac !important;
 }
 
 body[data-theme="dark"] .stock-button .chip.hold {
-  border-color: rgba(251, 191, 36, 0.32);
-  background: rgba(146, 64, 14, 0.32);
-  color: #fde68a;
+  border-color: rgba(251, 191, 36, 0.32) !important;
+  background: rgba(146, 64, 14, 0.32) !important;
+  color: #fde68a !important;
 }
 
 body[data-theme="dark"] .stock-button .chip.sell {
-  border-color: rgba(252, 165, 165, 0.32);
-  background: rgba(127, 29, 29, 0.32);
-  color: #fecaca;
+  border-color: rgba(252, 165, 165, 0.32) !important;
+  background: rgba(127, 29, 29, 0.32) !important;
+  color: #fecaca !important;
 }
 
 body[data-theme="dark"] .stock-button:hover,
@@ -626,6 +745,128 @@ h3 {
 
 main {
   padding: 22px clamp(16px, 4vw, 48px) 46px;
+}
+
+.stock-of-day-card {
+  margin-bottom: 16px;
+}
+
+.topbar-stock-of-day.stock-of-day-card {
+  margin-bottom: 0;
+}
+
+.stock-of-day-button {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(180px, 0.65fr) auto;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  border: 1px solid rgba(36, 95, 199, 0.18);
+  border-radius: 10px;
+  padding: 15px 16px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(246, 251, 255, 0.94)),
+    var(--accent-soft);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.topbar-stock-of-day .stock-of-day-button {
+  display: inline-grid;
+  grid-template-columns: max-content;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 0;
+  gap: 4px;
+  padding: 7px 10px 8px;
+  justify-items: center;
+}
+
+.stock-of-day-button::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 6px;
+  background: var(--accent);
+}
+
+.stock-of-day-button:hover,
+.stock-of-day-button:focus-visible {
+  border-color: rgba(36, 95, 199, 0.32);
+  box-shadow: var(--shadow-strong);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.stock-of-day-button:active,
+.stock-of-day-button.is-pressing {
+  transform: translateY(1px) scale(0.99);
+}
+
+.stock-of-day-kicker,
+.stock-of-day-action,
+.stock-of-day-main span {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.stock-of-day-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.stock-of-day-main {
+  display: grid;
+  gap: 4px;
+}
+
+.stock-of-day-main strong {
+  color: var(--ink);
+  font-size: 1.04rem;
+}
+
+.topbar-stock-of-day .stock-of-day-kicker {
+  font-size: 0.64rem;
+}
+
+.topbar-stock-of-day .stock-of-day-main strong {
+  font-size: 0.86rem;
+}
+
+.topbar-stock-of-day .stock-of-day-main {
+  width: fit-content;
+  max-width: 100%;
+  justify-items: center;
+  text-align: center;
+}
+
+.topbar-stock-of-day .stock-of-day-main span,
+.topbar-stock-of-day .stock-of-day-action {
+  font-size: 0.68rem;
+}
+
+.topbar-stock-of-day .stock-of-day-action {
+  width: 100%;
+  grid-column: 1 / -1;
+  justify-self: stretch;
+  text-align: center;
+  margin-top: 1px;
+}
+
+.stock-of-day-action {
+  justify-self: end;
+  border: 1px solid rgba(36, 95, 199, 0.18);
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: rgba(237, 245, 255, 0.92);
+  color: var(--blue);
+  white-space: nowrap;
 }
 
 .signup-shell {
@@ -2313,6 +2554,84 @@ body[data-installed-mobile="true"][data-lite-mode="on"] .stock-list {
   transform: translateY(0);
 }
 
+.daily-stock-popup {
+  position: fixed;
+  inset: auto 14px 18px 14px;
+  z-index: 74;
+  display: grid;
+  justify-items: center;
+  pointer-events: none;
+}
+
+.daily-stock-popup-card {
+  width: min(440px, calc(100vw - 28px));
+  border: 1px solid rgba(36, 95, 199, 0.2);
+  border-radius: 16px;
+  padding: 18px 18px 16px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.97), rgba(244, 249, 255, 0.95)),
+    var(--accent-soft);
+  box-shadow: 0 28px 52px rgba(17, 32, 59, 0.2);
+  color: var(--ink);
+  pointer-events: auto;
+}
+
+.daily-stock-popup-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.12rem;
+}
+
+.daily-stock-popup-kicker,
+.daily-stock-popup-meta,
+.daily-stock-popup-copy {
+  margin: 0;
+}
+
+.daily-stock-popup-kicker {
+  color: var(--teal);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.daily-stock-popup-meta {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.daily-stock-popup-copy {
+  margin-top: 8px;
+  color: var(--ink);
+  line-height: 1.52;
+}
+
+.daily-stock-popup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.daily-stock-popup-close {
+  margin: 0 0 12px auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(36, 95, 199, 0.14);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.daily-stock-popup .primary-button,
+.daily-stock-popup .ghost-button {
+  min-width: 132px;
+}
+
 .pwa-update-banner {
   position: fixed;
   right: 18px;
@@ -2899,6 +3218,43 @@ body[data-lite-mode="on"] .lite-market-slot .market-dropdown summary::after {
   bottom: 9px;
 }
 
+body[data-theme="dark"][data-lite-mode="on"] .lite-market-slot .market-dropdown summary,
+body[data-theme="dark"][data-lite-mode="on"] .lite-search-field {
+  border-color: var(--line);
+  background:
+    linear-gradient(180deg, rgba(18, 31, 51, 0.98), rgba(13, 24, 42, 0.98)),
+    var(--accent-soft);
+  color: var(--ink);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+body[data-theme="dark"][data-lite-mode="on"] .lite-market-slot .market-dropdown summary strong,
+body[data-theme="dark"][data-lite-mode="on"] .lite-search-field input {
+  color: var(--ink);
+}
+
+body[data-theme="dark"][data-lite-mode="on"] .lite-market-slot .market-dropdown summary,
+body[data-theme="dark"][data-lite-mode="on"] .lite-search-field span,
+body[data-theme="dark"][data-lite-mode="on"] .lite-search-field input::placeholder {
+  color: var(--muted);
+}
+
+body[data-theme="dark"][data-lite-mode="on"] .lite-market-slot .market-dropdown summary::after {
+  color: #93c5fd;
+}
+
+body[data-theme="dark"][data-lite-mode="on"] .lite-market-slot .country-menu {
+  border-color: var(--line);
+  background:
+    linear-gradient(180deg, rgba(18, 31, 51, 0.98), rgba(13, 24, 42, 0.98)),
+    var(--accent-soft);
+  color: var(--ink);
+}
+
+body[data-theme="dark"][data-lite-mode="on"] .lite-market-slot .country-menu label {
+  color: var(--ink);
+}
+
 body[data-lite-mode="on"] .youtube-learning {
   display: block;
 }
@@ -3222,6 +3578,20 @@ body[data-lite-mode="on"] .metric-action > span {
   display: block;
   margin-top: 5px;
   color: var(--ink);
+}
+
+.analysis-card .analysis-source-line {
+  color: var(--blue);
+  font-weight: 900;
+}
+
+.analysis-rsi-label {
+  margin-top: 9px;
+}
+
+.analysis-rsi-label .chip {
+  display: inline-flex;
+  align-items: center;
 }
 
 .analysis-note {
@@ -4158,16 +4528,32 @@ body[data-theme="dark"] .dividend-date-alert.urgent strong {
   .stock-list {
     max-height: 430px;
   }
+
+  .stock-of-day-button {
+    grid-template-columns: 1fr;
+  }
+
+  .stock-of-day-action {
+    justify-self: start;
+  }
 }
 
 @media (max-width: 760px) {
   .topbar {
+    grid-template-columns: 1fr;
     align-items: flex-start;
-    flex-direction: column;
   }
 
+  .topbar-brand,
   .topbar-actions {
     width: 100%;
+    justify-self: stretch;
+  }
+
+  .topbar-stock-of-day {
+    width: fit-content;
+    max-width: calc(100vw - 32px);
+    justify-self: center;
   }
 
   .topbar-panes {

@@ -1,4 +1,6 @@
 const dividendUniverseLimit = 5000;
+const dailyStockPopupSeenKey = "dividendDailyStockPopupSeen";
+const pendingStockKeyStorageKey = "dividendPendingStockKey";
 
 const stocks = [
   {
@@ -578,6 +580,7 @@ moreDividendStocks.push(...extraPlatformDividendStocks, ...highProfileDividendSt
 // Verified on 2026-05-02 against Yahoo Finance 2-year dividend-event history.
 const usRecentDividendExclusions = new Set([
   "ARIS",
+  "CAM",
   "CALY",
   "FIG",
   "RJET"
@@ -640,17 +643,134 @@ function dividendFrequency(stock) {
   return "Varies by company";
 }
 
-function liquidityProfile(stock) {
+function liquidityLabelForScore(score) {
+  return score >= 75 ? "High" : score >= 55 ? "Medium" : "Lower";
+}
+
+function liquidityNoteForScore(score) {
+  if (score >= 75) return "Usually easier to buy and sell with tighter spreads on major platforms.";
+  if (score >= 55) return "Tradable, but check spreads, order size, settlement timing, and platform availability.";
+  return "Can be harder to trade quickly; use limit orders and check local broker liquidity before buying.";
+}
+
+function averageMetric(values = []) {
+  const numbers = values.map(Number).filter((value) => Number.isFinite(value) && value >= 0);
+  if (!numbers.length) return 0;
+  return numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
+}
+
+function baseLiquidityScoreForMarket(market) {
   const marketBase = {
-    US: 88,
-    UK: 78,
-    Canada: 74,
-    Europe: 72,
-    Asia: 68,
-    Nigeria: 52,
-    Zimbabwe: 34
+    US: 48,
+    UK: 42,
+    Canada: 39,
+    Europe: 36,
+    Asia: 33,
+    Nigeria: 24,
+    Zimbabwe: 18
   };
-  let score = marketBase[stock.market] || 55;
+  return marketBase[market] || 32;
+}
+
+function computeLiquiditySnapshotFromMarketData(stock, quote = null, historyRows = []) {
+  const rows = Array.isArray(historyRows)
+    ? historyRows.filter((row) => Number.isFinite(Number(row?.close)) && Number(row.close) > 0)
+    : [];
+  const volumeRows = rows.filter((row) => Number.isFinite(Number(row?.volume)) && Number(row.volume) > 0);
+  const avgVolume = averageMetric(volumeRows.map((row) => row.volume));
+  const avgNotional = averageMetric(volumeRows.map((row) => Number(row.volume) * Number(row.close)));
+  const quoteVolume = Number(quote?.volume);
+  const livePrice = Number.isFinite(Number(quote?.price)) && Number(quote.price) > 0
+    ? Number(quote.price)
+    : Number(stock?.price);
+  const latestNotional = Number.isFinite(quoteVolume) && quoteVolume > 0 && Number.isFinite(livePrice) && livePrice > 0
+    ? quoteVolume * livePrice
+    : 0;
+  const effectiveVolume = avgVolume > 0 ? avgVolume : (Number.isFinite(quoteVolume) && quoteVolume > 0 ? quoteVolume : 0);
+  const effectiveNotional = avgNotional > 0 ? avgNotional : latestNotional;
+  if (!(effectiveVolume > 0 || effectiveNotional > 0)) return null;
+
+  let score = baseLiquidityScoreForMarket(stock?.market);
+  if (effectiveNotional >= 1000000000) score += 38;
+  else if (effectiveNotional >= 250000000) score += 33;
+  else if (effectiveNotional >= 100000000) score += 28;
+  else if (effectiveNotional >= 25000000) score += 21;
+  else if (effectiveNotional >= 5000000) score += 14;
+  else if (effectiveNotional >= 1000000) score += 9;
+  else if (effectiveNotional >= 250000) score += 5;
+  else if (effectiveNotional >= 50000) score += 1;
+  else score -= 6;
+
+  if (effectiveVolume >= 10000000) score += 8;
+  else if (effectiveVolume >= 1000000) score += 5;
+  else if (effectiveVolume >= 250000) score += 2;
+  else if (effectiveVolume < 10000) score -= 4;
+
+  if (volumeRows.length >= 20) score += 4;
+  else if (volumeRows.length >= 5) score += 2;
+  else if (Number.isFinite(quoteVolume) && quoteVolume > 0) score -= 1;
+  else score -= 4;
+
+  const marketCap = Number(stock?.marketCap);
+  if (marketCap >= 100000000000) score += 4;
+  else if (marketCap >= 10000000000) score += 2;
+  else if (marketCap > 0 && marketCap < 500000000) score -= 2;
+
+  if (Number.isFinite(livePrice) && livePrice > 0 && livePrice < 1) score -= 4;
+
+  const roundedScore = clamp(Math.round(score), 15, 98);
+  return {
+    score: roundedScore,
+    label: liquidityLabelForScore(roundedScore),
+    note: liquidityNoteForScore(roundedScore),
+    source: volumeRows.length >= 5
+      ? "Live trading volume and turnover"
+      : Number.isFinite(quoteVolume) && quoteVolume > 0
+        ? "Current trading volume"
+        : "Market liquidity proxy",
+    avgDailyVolume: Math.round(effectiveVolume),
+    avgDailyValue: Number(effectiveNotional.toFixed(2)),
+    updatedAt: new Date().toISOString(),
+    status: "Live"
+  };
+}
+
+function applyLiquidityPayloadToStock(stock, payload) {
+  const numericScore = Number(payload?.score);
+  if (!stock || !Number.isFinite(numericScore)) return false;
+  const score = clamp(Math.round(numericScore), 15, 98);
+  stock.liquidityData = {
+    score,
+    label: payload.label || liquidityLabelForScore(score),
+    note: payload.note || liquidityNoteForScore(score),
+    source: payload.source || payload.provider || "Live trading volume",
+    avgDailyVolume: Number.isFinite(Number(payload.avgDailyVolume)) ? Math.round(Number(payload.avgDailyVolume)) : 0,
+    avgDailyValue: Number.isFinite(Number(payload.avgDailyValue)) ? Number(payload.avgDailyValue) : 0,
+    updatedAt: payload.updatedAt || new Date().toISOString(),
+    status: payload.status || "Live"
+  };
+  return true;
+}
+
+function updateLiquiditySnapshotFromMarketData(stock, quote = null, historyRows = []) {
+  const snapshot = computeLiquiditySnapshotFromMarketData(stock, quote, historyRows);
+  if (!snapshot) return false;
+  return applyLiquidityPayloadToStock(stock, snapshot);
+}
+
+function liquidityProfile(stock) {
+  if (Number.isFinite(Number(stock?.liquidityData?.score))) {
+    const score = clamp(Math.round(Number(stock.liquidityData.score)), 15, 98);
+    return {
+      score,
+      label: stock.liquidityData.label || liquidityLabelForScore(score),
+      note: stock.liquidityData.note || liquidityNoteForScore(score),
+      source: stock.liquidityData.source || "Live trading volume",
+      updatedAt: stock.liquidityData.updatedAt || ""
+    };
+  }
+
+  let score = baseLiquidityScoreForMarket(stock.market);
   if ((stock.marketCap || 0) >= 100000000000) score += 8;
   else if ((stock.marketCap || 0) >= 10000000000) score += 5;
   else if ((stock.marketCap || 0) >= 1000000000) score += 2;
@@ -658,13 +778,12 @@ function liquidityProfile(stock) {
   if (stock.category.toLowerCase().includes("reit")) score -= 2;
   if (stock.market === "Zimbabwe") score -= 5;
   score = clamp(Math.round(score), 15, 98);
-  const label = score >= 75 ? "High" : score >= 55 ? "Medium" : "Lower";
-  const note = score >= 75
-    ? "Usually easier to buy and sell with tighter spreads on major platforms."
-    : score >= 55
-      ? "Tradable, but check spreads, order size, settlement timing, and platform availability."
-      : "Can be harder to trade quickly; use limit orders and check local broker liquidity before buying.";
-  return { score, label, note };
+  return {
+    score,
+    label: liquidityLabelForScore(score),
+    note: liquidityNoteForScore(score),
+    source: "Market-cap and market-depth estimate"
+  };
 }
 
 function platformLiquidityScore(stock, platformName) {
@@ -676,7 +795,7 @@ function platformLiquidityScore(stock, platformName) {
   if (name.includes("investnaija") && stock.market === "Nigeria") score += 3;
   if (name.includes("local") || name.includes("specialist") || name.includes("frontier")) score -= 8;
   score = clamp(Math.round(score), 15, 98);
-  const label = score >= 75 ? "High" : score >= 55 ? "Medium" : "Lower";
+  const label = liquidityLabelForScore(score);
   return `Liquidity score: ${score}/100 (${label})`;
 }
 
@@ -716,15 +835,21 @@ function platformChoices(market) {
   ];
 }
 
-function inferPlatformMarket(ticker, company) {
-  const symbol = String(ticker || "").toUpperCase();
-  const name = String(company || "").toLowerCase();
-  const canada = new Set(["RY", "TD", "BNS", "BMO", "CM", "ENB", "CNQ", "TRP", "BCE", "TU", "MFC", "SLF", "FTS", "CNI", "CP", "SHOP", "WCN", "GIB", "NTR"]);
-  const europe = new Set(["NVS", "SAP", "SAN", "UBS", "TTE", "UL", "SHEL", "RIO", "BHP", "AZN", "GSK", "NVO", "ASML", "LIN", "BP", "HSBC", "BTI", "DEO"]);
+function inferPlatformMarket(ticker, company, row = {}) {
+  if (window.marketClassifier?.inferPlatformMarket) {
+    return window.marketClassifier.inferPlatformMarket(ticker, company, row);
+  }
+  const symbol = String(ticker || row.symbol || "").trim().toUpperCase();
+  const name = String(company || row.company || "");
+  const canada = new Set(["RY", "TD", "BNS", "BMO", "CM", "ENB", "CNQ", "TRP", "BCE", "TU", "MFC", "SLF", "FTS", "CNI", "CP", "SHOP", "WCN", "GIB", "NTR", "AEM", "WFG", "BGSI"]);
+  const uk = new Set(["AZN", "GSK", "BP", "HSBC", "BTI", "DEO", "RIO", "SHEL", "BHP", "UL", "AMCR"]);
+  const europe = new Set(["NVS", "SAP", "SAN", "UBS", "TTE", "NVO", "ASML", "LIN", "FER"]);
   const asia = new Set(["TM", "MUFG", "HDB", "TSM", "NTES", "SONY", "NIO", "BABA", "JD", "CHT", "KB", "SMFG", "TAK", "INFY"]);
-  if (canada.has(symbol) || name.includes("canadian") || name.includes("toronto-dominion") || name.includes("royal bank of canada")) return "Canada";
-  if (europe.has(symbol) || name.includes("plc") || name.includes("s.a.") || name.includes("ag") || name.includes("se")) return "Europe";
-  if (asia.has(symbol) || name.includes("toyota") || name.includes("taiwan") || name.includes("mitsubishi") || name.includes("hdfc")) return "Asia";
+  if (canada.has(symbol) || /\b(canadian|royal bank of canada|toronto dominion)\b/i.test(name)) return "Canada";
+  if (asia.has(symbol) || /\b(taiwan semiconductor|toyota|mitsubishi|sumitomo|hdfc|alibaba|jd\.?com|takeda|sony|taiwan)\b/i.test(name)) return "Asia";
+  if (uk.has(symbol) || /\bp\.?\s*l\.?\s*c\.?\b/i.test(name) || /\b(unilever|astrazeneca|british american tobacco|shell|bp|hsbc|diageo|gsk)\b/i.test(name)) return "UK";
+  if (europe.has(symbol) || /\b(s\.?\s*e\.?|a\.?\s*g\.?|n\.?\s*v\.?|s\.?\s*a\.?|a\/s)\b/i.test(name)) return "Europe";
+  if (["Canada", "UK", "Asia", "Nigeria", "Zimbabwe"].includes(row.market)) return row.market;
   return "US";
 }
 
@@ -738,19 +863,194 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
-function buyScoreFromMetrics({ growthYears = 0, payoutRatio = 65, safety = 60, dividendYield = 2.5, marketCap = 0 }) {
+function normalizeValuationLabel(value = "") {
+  const label = String(value || "").trim().toLowerCase();
+  if (!label) return "";
+  if (/(cheap|undervalued|attractive)/i.test(label)) return "Cheap";
+  if (/(expensive|overvalued|rich)/i.test(label)) return "Expensive";
+  return "Fair";
+}
+
+function inferValuationLabelFromMetrics({
+  dividendYield = 0,
+  payoutRatio = 65,
+  safety = 60,
+  growthYears = 0,
+  marketCap = 0,
+  currentValuation = ""
+}) {
+  const seeded = normalizeValuationLabel(currentValuation);
+  let score = 50;
+  const yieldValue = Number(dividendYield) || 0;
+  const payoutValue = Number(payoutRatio) || 0;
+  const safetyValue = Number(safety) || 0;
+  const growthValue = Number(growthYears) || 0;
+  const sizeValue = Number(marketCap) || 0;
+
+  if (yieldValue >= 7) score += 18;
+  else if (yieldValue >= 5) score += 12;
+  else if (yieldValue >= 3) score += 6;
+  else if (yieldValue > 0 && yieldValue < 1.5) score -= 12;
+
+  if (payoutValue > 0 && payoutValue <= 60) score += 8;
+  else if (payoutValue <= 80) score += 3;
+  else if (payoutValue > 95) score -= 14;
+
+  if (safetyValue >= 75) score += 7;
+  else if (safetyValue >= 60) score += 3;
+  else if (safetyValue < 50) score -= 8;
+
+  if (growthValue >= 8) score += 5;
+  else if (growthValue <= 0) score -= 3;
+
+  if (sizeValue >= 250000000000) score -= 4;
+  else if (sizeValue >= 100000000000) score -= 2;
+  else if (sizeValue > 0 && sizeValue <= 5000000000) score += 2;
+
+  if (seeded === "Cheap") score += 5;
+  else if (seeded === "Expensive") score -= 5;
+
+  if (score >= 62) return "Cheap";
+  if (score <= 40) return "Expensive";
+  return "Fair";
+}
+
+function valuationScoreFromLabel(value = "") {
+  const label = normalizeValuationLabel(value);
+  if (label === "Cheap") return 88;
+  if (label === "Expensive") return 28;
+  return 62;
+}
+
+function buyScoreFromMetrics({
+  growthYears = 0,
+  payoutRatio = 65,
+  safety = 60,
+  dividendYield = 2.5,
+  marketCap = 0,
+  valuation = ""
+}) {
   const payoutHealth = payoutRatio <= 0 ? 45 : payoutRatio <= 35 ? 88 : payoutRatio <= 60 ? 100 : payoutRatio <= 75 ? 78 : payoutRatio <= 90 ? 42 : 15;
   const growthScore = clamp((growthYears / 25) * 100, 0, 100);
   const yieldScore = dividendYield <= 0 ? 0 : dividendYield <= 2 ? 45 : dividendYield <= 6 ? 80 : dividendYield <= 10 ? 68 : 35;
   const sizeScore = marketCap >= 100000000000 ? 92 : marketCap >= 10000000000 ? 78 : marketCap >= 2000000000 ? 62 : 48;
   const safeScore = clamp((safety * 0.75) + (sizeScore * 0.25), 0, 100);
-  return Math.round((growthScore * 0.25) + (payoutHealth * 0.3) + (safeScore * 0.3) + (yieldScore * 0.15));
+  const valuationScore = valuationScoreFromLabel(
+    valuation || inferValuationLabelFromMetrics({ dividendYield, payoutRatio, safety, growthYears, marketCap })
+  );
+  return Math.round((growthScore * 0.22) + (payoutHealth * 0.28) + (safeScore * 0.26) + (yieldScore * 0.12) + (valuationScore * 0.12));
 }
 
 function scoreSignal(score, payoutRatio) {
   if (score >= 72 && payoutRatio <= 85) return "Buy";
   if (score < 45 || payoutRatio > 110) return "Sell";
   return "Hold";
+}
+
+function dividendHistoryEventTime(entry = {}) {
+  const dateText = entry.payDate || entry.recordDate || entry.exDate || "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateText))) return 0;
+  const time = Date.parse(`${dateText}T00:00:00Z`);
+  return Number.isFinite(time) ? time : 0;
+}
+
+function normalizedDividendHistory(stock) {
+  return Array.isArray(stock.verifiedDividendHistory)
+    ? stock.verifiedDividendHistory
+      .filter((entry) => Number.isFinite(Number(entry?.amount)) && Number(entry.amount) > 0)
+      .map((entry) => ({ ...entry, amount: Number(entry.amount), eventTime: dividendHistoryEventTime(entry) }))
+      .sort((a, b) => b.eventTime - a.eventTime)
+    : [];
+}
+
+function inferredPaymentsPerYear(stock) {
+  const verifiedHistory = normalizedDividendHistory(stock);
+  if (!verifiedHistory.length) return dividendPaymentsPerYear(stock);
+  const latestEventTime = verifiedHistory[0].eventTime || 0;
+  if (!latestEventTime) return dividendPaymentsPerYear(stock);
+  const oneYearMs = 370 * 24 * 60 * 60 * 1000;
+  const recent = verifiedHistory.filter((entry) => entry.eventTime && (latestEventTime - entry.eventTime) <= oneYearMs);
+  if (recent.length >= 10) return 12;
+  if (recent.length >= 3) return 4;
+  if (recent.length >= 2) return 2;
+  return dividendPaymentsPerYear(stock);
+}
+
+function bestAnnualDividendEstimate(stock) {
+  const verifiedHistory = normalizedDividendHistory(stock);
+  if (verifiedHistory.length) {
+    const latestEventTime = verifiedHistory[0].eventTime || 0;
+    const oneYearMs = 370 * 24 * 60 * 60 * 1000;
+    const recentTotal = verifiedHistory
+      .filter((entry) => entry.eventTime && (latestEventTime - entry.eventTime) <= oneYearMs)
+      .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+    if (recentTotal > 0) return Number(recentTotal.toFixed(4));
+    if (verifiedHistory[0].amount > 0) {
+      return Number((verifiedHistory[0].amount * inferredPaymentsPerYear(stock)).toFixed(4));
+    }
+  }
+  if (Number(stock.lastDividendAmount) > 0) {
+    return Number((Number(stock.lastDividendAmount) * inferredPaymentsPerYear(stock)).toFixed(4));
+  }
+  if (Number(stock.annualDividend) > 0) return Number(stock.annualDividend);
+  if (Number(stock.price) > 0 && Number(stock.dividendYield) > 0) {
+    return Number((Number(stock.price) * (Number(stock.dividendYield) / 100)).toFixed(4));
+  }
+  return 0;
+}
+
+function normalizedGrowthMetric(stock) {
+  const raw = Number(stock.divGrowth);
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  return clamp(raw, 0, 25);
+}
+
+function reanalyzedSignal(stock, score) {
+  const yieldValue = Number(stock.dividendYield) || 0;
+  const payoutRatio = Number(stock.payoutRatio) || 0;
+  const safety = Number(stock.safety) || 0;
+
+  if (yieldValue <= 0 || payoutRatio <= 0) return "Sell";
+  if (payoutRatio > 110 || safety < 45) return "Sell";
+  if (score >= 72 && payoutRatio <= 85 && safety >= 60 && yieldValue >= 2 && yieldValue <= 12) return "Buy";
+  if (score < 45 || (yieldValue > 14 && payoutRatio > 85) || safety < 50) return "Sell";
+  return "Hold";
+}
+
+function reanalyzeStockMetrics(stock) {
+  if (!stock || typeof stock !== "object") return stock;
+  const annualDividend = bestAnnualDividendEstimate(stock);
+  if (annualDividend > 0) {
+    stock.annualDividend = annualDividend;
+  }
+
+  const livePrice = Number(stock.price);
+  if (annualDividend > 0 && Number.isFinite(livePrice) && livePrice > 0) {
+    stock.dividendYield = Number(((annualDividend / livePrice) * 100).toFixed(2));
+  } else if (!Number.isFinite(Number(stock.dividendYield))) {
+    stock.dividendYield = 0;
+  }
+
+  stock.valuation = inferValuationLabelFromMetrics({
+    dividendYield: Number(stock.dividendYield) || 0,
+    payoutRatio: Number(stock.payoutRatio) || 0,
+    safety: Number(stock.safety) || 0,
+    growthYears: normalizedGrowthMetric(stock),
+    marketCap: Number(stock.marketCap) || 0,
+    currentValuation: stock.valuation
+  });
+
+  const buyScore = buyScoreFromMetrics({
+    growthYears: normalizedGrowthMetric(stock),
+    payoutRatio: Number(stock.payoutRatio) || 0,
+    safety: Number(stock.safety) || 0,
+    dividendYield: Number(stock.dividendYield) || 0,
+    marketCap: Number(stock.marketCap) || 0,
+    valuation: stock.valuation
+  });
+  stock.buyScore = buyScore;
+  stock.signal = reanalyzedSignal(stock, buyScore);
+  return stock;
 }
 
 function addUniverseRows() {
@@ -790,14 +1090,46 @@ function addUniverseRows() {
 
 addUniverseRows();
 
+function applyOnlineUniverseMetricsToStock(stock, row = {}) {
+  if (!stock || !row) return;
+  const payoutRatio = Number(row.payout);
+  const growthYears = Number(row.years);
+  const annualDividend = Number(row.annualDividend);
+  const marketCap = Number(row.marketCap);
+  const payoutSource = String(row.payoutSource || row.dividendSource || "").trim();
+  const payoutVerifiedAt = String(row.payoutVerifiedAt || row.dividendVerifiedAt || "").trim();
+
+  if (row.sector) stock.category = row.sector;
+  if (Number.isFinite(annualDividend) && annualDividend > 0) stock.annualDividend = annualDividend;
+  if (Number.isFinite(marketCap) && marketCap > 0) stock.marketCap = marketCap;
+  if (Number.isFinite(payoutRatio) && payoutRatio > 0) {
+    stock.payoutRatio = Number(payoutRatio.toFixed(2));
+    stock.payoutSource = payoutSource || stock.payoutSource || "Online dividend universe";
+    stock.payoutVerifiedAt = payoutVerifiedAt || stock.payoutVerifiedAt || "";
+    stock.payoutStatus = payoutSource || payoutVerifiedAt ? "Verified" : stock.payoutStatus || "";
+  }
+  if (Number.isFinite(growthYears) && growthYears >= 0) stock.divGrowth = growthYears;
+  if (row.valuation) stock.valuation = normalizeValuationLabel(row.valuation) || stock.valuation;
+  if (row.dividendCurrency) stock.dividendCurrency = row.dividendCurrency;
+  if (row.dividendSourceUrl) stock.dividendSourceUrl = row.dividendSourceUrl;
+  if (row.dividendSource) stock.dividendSource = row.dividendSource;
+  if (row.dividendVerifiedAt) stock.dividendVerifiedAt = row.dividendVerifiedAt;
+  reanalyzeStockMetrics(stock);
+}
+
 function addOnlineDividendRows() {
   const sourceRows = Array.isArray(window.ONLINE_DIVIDEND_UNIVERSE) ? window.ONLINE_DIVIDEND_UNIVERSE : [];
-  const existing = new Set(stocks.map((stock) => `${stock.market}:${stock.ticker}`));
+  const existing = new Map(stocks.map((stock) => [`${stock.market}:${stock.ticker}`, stock]));
   sourceRows.forEach((row) => {
     const ticker = String(row.symbol || "").trim().toUpperCase();
-    const market = inferPlatformMarket(ticker, row.company);
+    const market = inferPlatformMarket(ticker, row.company, row);
     if (market === "US" && usRecentDividendExclusions.has(ticker)) return;
-    if (!ticker || existing.has(`${market}:${ticker}`)) return;
+    if (!ticker) return;
+    const existingStock = existing.get(`${market}:${ticker}`);
+    if (existingStock) {
+      applyOnlineUniverseMetricsToStock(existingStock, row);
+      return;
+    }
     const dividendYield = Number(row.yield) || 0;
     const annualDividend = Number(row.annualDividend) || 0;
     const payoutRatio = Number(row.payout) || 65;
@@ -807,7 +1139,14 @@ function addOnlineDividendRows() {
       ? Number((annualDividend / (dividendYield / 100)).toFixed(2))
       : Number((20 + (ticker.charCodeAt(0) || 65) * 1.7).toFixed(2));
     const safety = clamp(100 - Math.max(0, payoutRatio - 45) * 0.75 + Math.min(growthYears, 25) * 0.8, 20, 95);
-    const buyScore = Number(row.qualityScore) || buyScoreFromMetrics({ growthYears, payoutRatio, safety, dividendYield, marketCap });
+    const valuation = normalizeValuationLabel(row.valuation) || inferValuationLabelFromMetrics({
+      dividendYield,
+      payoutRatio,
+      safety,
+      growthYears,
+      marketCap
+    });
+    const buyScore = Number(row.qualityScore) || buyScoreFromMetrics({ growthYears, payoutRatio, safety, dividendYield, marketCap, valuation });
     const signal = scoreSignal(buyScore, payoutRatio);
     const [exDate, recordDate, payDate] = expectedDividendDates(ticker);
     stocks.push({
@@ -820,11 +1159,14 @@ function addOnlineDividendRows() {
       annualDividend,
       dividendYield: Number(dividendYield.toFixed(2)),
       payoutRatio: Number(payoutRatio.toFixed(1)),
+      payoutSource: row.payoutSource || row.dividendSource || "",
+      payoutVerifiedAt: row.payoutVerifiedAt || row.dividendVerifiedAt || "",
+      payoutStatus: row.payoutSource || row.payoutVerifiedAt ? "Verified" : "",
       divGrowth: growthYears,
       safety: Math.round(safety),
       buyScore,
       marketCap,
-      valuation: buyScore >= 72 ? "Fair" : buyScore < 45 ? "Expensive" : "Fair",
+      valuation,
       signal,
       exDate,
       recordDate,
@@ -833,15 +1175,16 @@ function addOnlineDividendRows() {
       platforms: platformChoices(market),
       reasons: [
         `${row.company || ticker} was imported from the online dividend stock universe, which tracks dividend yield, annual dividend, payout ratio, sector, and dividend growth streaks.`,
-        `Buy score ${buyScore}/100 combines dividend growth streak, payout-ratio health, safety/size quality, and yield quality.`,
+        `Buy score ${buyScore}/100 combines dividend growth streak, payout-ratio health, safety/size quality, yield quality, and current valuation.`,
         `Payout ratio is ${Number(payoutRatio.toFixed(1))}%; extreme payout ratios reduce the score even when the headline yield looks attractive.`
       ]
     });
-    existing.add(`${market}:${ticker}`);
+    existing.set(`${market}:${ticker}`, stocks[stocks.length - 1]);
   });
 }
 
 addOnlineDividendRows();
+stocks.forEach(reanalyzeStockMetrics);
 
 function mergedDividendSources(baseSource = {}, updateSource = {}) {
   const combined = {};
@@ -898,6 +1241,7 @@ function applyStaticNigeriaDividendData() {
           nextDeclared: Boolean(record.qualificationDate || record.paymentDate),
           note: [record.note, meta.note].filter(Boolean).join(" ")
         });
+        reanalyzeStockMetrics(stock);
         applied += 1;
       });
   });
@@ -940,6 +1284,7 @@ function applyStaticMarketDividendData() {
           history: record.history || [],
           note: [record.note, meta.note].filter(Boolean).join(" ")
         });
+        reanalyzeStockMetrics(stock);
         applied += 1;
       });
   });
@@ -1069,7 +1414,8 @@ function finalQualityScore(stock) {
     payoutRatio: stock.payoutRatio,
     safety: stock.safety,
     dividendYield: stock.dividendYield,
-    marketCap: stock.marketCap || 0
+    marketCap: stock.marketCap || 0,
+    valuation: stock.valuation
   });
 }
 
@@ -1130,6 +1476,7 @@ const liteSearchInput = document.querySelector("#liteSearchInput");
 const sortField = document.querySelector("#sortField");
 const sortDirection = document.querySelector("#sortDirection");
 const rangeTabs = [...document.querySelectorAll(".range-tab")];
+const stockOfDayCard = document.querySelector("#stockOfDayCard");
 const stockList = document.querySelector("#stockList");
 const youtubeChannels = document.querySelector("#youtubeChannels");
 const ipoPane = document.querySelector(".ipo-learning");
@@ -1201,6 +1548,8 @@ const canvas = document.querySelector("#priceChart");
 const ctx = canvas.getContext("2d");
 const chartTooltip = document.querySelector("#chartTooltip");
 
+hydrateStocksWithVerifiedRsiCache();
+
 let selectedTicker = stocks[0].ticker;
 let selectedStock = stocks[0];
 let chartRange = "monthly";
@@ -1229,6 +1578,11 @@ const dashboardStateKey = "dividendDashboardState";
 const freeTrialDays = 7;
 const inactivityLimitMs = 60 * 60 * 1000;
 const usesHostedSharedAccounts = window.location.protocol !== "file:";
+
+function allowManualRefreshControl() {
+  return window.location.protocol === "file:";
+}
+
 let hostedProfileSyncTimer = null;
 let hostedProfileSyncInFlight = false;
 let hostedProfileSyncPending = {};
@@ -1245,8 +1599,8 @@ const staticDividendSnapshotPaths = {
   nigeria: "nigeria-dividends-scraped.json",
   market: "market-dividends-scraped.json"
 };
-const hostedStaticDividendRefreshMs = 5 * 60 * 1000;
-const hostedDividendSweepRefreshMs = 20 * 60 * 1000;
+const hostedStaticDividendRefreshMs = 60 * 1000;
+const hostedDividendSweepRefreshMs = 3 * 60 * 1000;
 const hostedDividendSweepBatchSize = 60;
 const hostedDividendSweepBatchCount = 2;
 let hostedDividendSnapshotVersions = {
@@ -1256,6 +1610,9 @@ let hostedDividendSnapshotVersions = {
 let hostedStaticDividendRefreshInFlight = false;
 let hostedDividendSweepInFlight = false;
 let hostedDividendSweepCursor = 0;
+let liveRefreshInFlight = false;
+let immediateHostedRefreshTimer = 0;
+let lastImmediateHostedRefreshAt = 0;
 hostedDividendSnapshotVersions.nigeria = currentSnapshotVersion(window.NIGERIA_DIVIDEND_UPDATES || window.NIGERIA_DIVIDEND_DATES || {});
 hostedDividendSnapshotVersions.market = currentSnapshotVersion(window.MARKET_DIVIDEND_UPDATES || window.MARKET_DIVIDEND_DATES || {});
 const marketDropdownHome = marketDropdown?.parentElement || null;
@@ -1541,6 +1898,54 @@ function findStockByKey(key) {
   return stocks.find((stock) => stockKey(stock) === key);
 }
 
+function verifiedRsiCacheEntries() {
+  if (!window.VERIFIED_RSI_CACHE) return {};
+  const payload = window.VERIFIED_RSI_CACHE;
+  return payload?.data && typeof payload.data === "object" ? payload.data : payload;
+}
+
+function verifiedRsiCacheMeta() {
+  if (!window.VERIFIED_RSI_CACHE || typeof window.VERIFIED_RSI_CACHE !== "object") return {};
+  return window.VERIFIED_RSI_CACHE._meta && typeof window.VERIFIED_RSI_CACHE._meta === "object"
+    ? window.VERIFIED_RSI_CACHE._meta
+    : {};
+}
+
+function applyFallbackPriceFromSeries(stock, values = [], labels = [], provider = "") {
+  const numericValues = Array.isArray(values)
+    ? values.map(Number).filter((value) => Number.isFinite(value) && value > 0)
+    : [];
+  if (!numericValues.length) return false;
+  const latestPrice = numericValues[numericValues.length - 1];
+  stock.price = Number(latestPrice.toFixed(stock.currency === "GBP" && latestPrice > 100 ? 0 : 2));
+  const latestDate = Array.isArray(labels) && labels.length >= numericValues.length
+    ? String(labels[labels.length - 1] || "")
+    : "";
+  stock.liveStatus = `${provider || "Verified daily history"}${latestDate ? ` ${latestDate}` : ""}`;
+  reanalyzeStockMetrics(stock);
+  return true;
+}
+
+function syncRefreshButtonVisibility() {
+  if (!refreshPrices) return;
+  refreshPrices.hidden = !allowManualRefreshControl();
+}
+
+function stockMarkedUnverifiedInCache(stock) {
+  const keys = Array.isArray(verifiedRsiCacheMeta().unverifiedKeys)
+    ? verifiedRsiCacheMeta().unverifiedKeys
+    : [];
+  return keys.includes(stockKey(stock));
+}
+
+function hydrateStocksWithVerifiedRsiCache() {
+  const entries = verifiedRsiCacheEntries();
+  if (!entries || typeof entries !== "object") return;
+  stocks.forEach((stock) => {
+    applyVerifiedRsiPayloadToStock(stock, entries[stockKey(stock)]);
+  });
+}
+
 function isInstalledMobileView() {
   const installed = window.matchMedia("(display-mode: standalone)").matches
     || window.matchMedia("(display-mode: fullscreen)").matches
@@ -1550,6 +1955,113 @@ function isInstalledMobileView() {
   const mobile = window.matchMedia("(pointer: coarse)").matches
     || /Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent);
   return installed && mobile;
+}
+
+function londonDateParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  return {
+    dateKey: `${values.year}-${values.month}-${values.day}`,
+    hour: Number(values.hour || 0)
+  };
+}
+
+function requestedStockKey() {
+  const params = new URLSearchParams(window.location.search);
+  return String(params.get("stock") || localStorage.getItem(pendingStockKeyStorageKey) || "").trim();
+}
+
+function clearRequestedStockKey() {
+  localStorage.removeItem(pendingStockKeyStorageKey);
+  const url = new URL(window.location.href);
+  if (url.searchParams.has("stock")) {
+    url.searchParams.delete("stock");
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState({}, "", nextUrl);
+  }
+}
+
+function applyRequestedStockSelection() {
+  const key = requestedStockKey();
+  if (!key) return;
+  const stock = findStockByKey(key);
+  if (!stock) return;
+  openStockChartByKey(key);
+  clearRequestedStockKey();
+}
+
+async function maybeShowNativeDailyStockNotification(payload) {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  const title = `Stock of the day: ${payload.stock.ticker}`;
+  const body = `${payload.stock.name} · ${payload.stock.signal} · Score ${payload.score}/100`;
+  const tag = `dividend-stock-day-${payload.dateKey}`;
+  try {
+    if ("serviceWorker" in navigator) {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification(title, {
+        body,
+        tag,
+        renotify: false,
+        data: { url: payload.linkUrl || `${window.location.origin}/signin.html?stock=${encodeURIComponent(payload.key)}&from=stock-of-day` }
+      });
+      return;
+    }
+  } catch {}
+  try {
+    new Notification(title, { body, tag });
+  } catch {}
+}
+
+function closeDailyStockPopup() {
+  document.querySelector("#dailyStockPopup")?.remove();
+}
+
+function showDailyStockPopup(payload) {
+  closeDailyStockPopup();
+  const popup = document.createElement("div");
+  popup.id = "dailyStockPopup";
+  popup.className = "daily-stock-popup";
+  popup.innerHTML = `
+    <div class="daily-stock-popup-card" role="dialog" aria-modal="false" aria-label="Stock of the day">
+      <button class="daily-stock-popup-close" type="button" aria-label="Close stock of the day popup">Close</button>
+      <p class="daily-stock-popup-kicker">Stock of the day · ${payload.dateLabel}</p>
+      <h3>${payload.stock.ticker} · ${payload.stock.name}</h3>
+      <p class="daily-stock-popup-meta">${payload.stock.market} · ${payload.stock.signal} · Score ${payload.score}/100</p>
+      <p class="daily-stock-popup-copy">${payload.reason}</p>
+      <div class="daily-stock-popup-actions">
+        <button class="primary-button daily-stock-open" type="button">Open chart</button>
+        <button class="ghost-button daily-stock-save" type="button">Dismiss</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(popup);
+  popup.querySelector(".daily-stock-popup-close")?.addEventListener("click", closeDailyStockPopup);
+  popup.querySelector(".daily-stock-save")?.addEventListener("click", closeDailyStockPopup);
+  popup.querySelector(".daily-stock-open")?.addEventListener("click", () => {
+    closeDailyStockPopup();
+    openStockChartByKey(payload.key);
+  });
+}
+
+async function maybeShowDailyStockPopup() {
+  if (window.location.protocol === "file:" || !isInstalledMobileView()) return;
+  const london = londonDateParts();
+  if (london.hour < 9) return;
+  if (localStorage.getItem(dailyStockPopupSeenKey) === london.dateKey) return;
+  const response = await fetch("/api/stock-of-day", { cache: "no-store" }).catch(() => null);
+  const data = response?.ok ? await response.json().catch(() => null) : null;
+  if (!data?.ok || !data?.stock || !data?.key) return;
+  localStorage.setItem(dailyStockPopupSeenKey, london.dateKey);
+  showDailyStockPopup(data);
+  await maybeShowNativeDailyStockNotification(data);
 }
 
 function applyInstalledMobileLayout() {
@@ -1608,7 +2120,7 @@ function applyLiteMode(enabled) {
 applyInstalledMobileLayout();
 window.addEventListener("resize", applyInstalledMobileLayout, { passive: true });
 applyTheme(localStorage.getItem("dividendTheme") === "dark" ? "dark" : "light");
-applyLiteMode(false);
+applyLiteMode(localStorage.getItem("dividendLiteMode") === "on");
 document.body.removeAttribute("data-view-mode");
 localStorage.removeItem("dividendViewMode");
 
@@ -1947,7 +2459,14 @@ async function fetchStooqQuote(stock) {
   const values = parseCsvLine(rows[1]);
   const close = Number(values[6]);
   if (!Number.isFinite(close) || close <= 0) return null;
-  return { price: close, provider: "Stooq delayed quote", time: `${values[1]} ${values[2]}` };
+  const volume = Number(values[7]);
+  return {
+    price: close,
+    provider: "Stooq delayed quote",
+    date: values[1],
+    time: `${values[1]} ${values[2]}`,
+    volume: Number.isFinite(volume) && volume > 0 ? volume : 0
+  };
 }
 
 async function fetchStooqQuotesBatch(stockGroup) {
@@ -1966,12 +2485,15 @@ async function fetchStooqQuotesBatch(stockGroup) {
       const values = parseCsvLine(row);
       const close = Number(values[6]);
       if (!Number.isFinite(close) || close <= 0) return;
+      const volume = Number(values[7]);
       const stock = batch[index]?.stock;
       if (!stock) return;
       quoteMap.set(`${stock.market}:${stock.ticker}`, {
         price: close,
         provider: "Stooq delayed quote",
-        time: `${values[1]} ${values[2]}`
+        date: values[1],
+        time: `${values[1]} ${values[2]}`,
+        volume: Number.isFinite(volume) && volume > 0 ? volume : 0
       });
     });
   }));
@@ -1985,8 +2507,13 @@ async function fetchStooqHistory(stock, interval = historyIntervalForRange()) {
   const text = await fetchTextWithCorsFallback(url);
   const rows = text.trim().split(/\r?\n/).slice(1);
   const points = rows.map((line) => {
-    const [date, , , , close] = parseCsvLine(line);
-    return { date, close: Number(close) };
+    const [date, , , , close, volume] = parseCsvLine(line);
+    const parsedVolume = Number(volume);
+    return {
+      date,
+      close: Number(close),
+      volume: Number.isFinite(parsedVolume) && parsedVolume > 0 ? parsedVolume : 0
+    };
   }).filter((row) => row.date && Number.isFinite(row.close) && row.close > 0);
   return points.length >= 3 ? points.slice(-120) : null;
 }
@@ -2039,23 +2566,45 @@ async function fetchYahooChart(stock) {
   if (!Number.isFinite(price) || price <= 0) return null;
   const timestamps = result.timestamp || [];
   const closes = result.indicators?.quote?.[0]?.close || [];
+  const volumes = result.indicators?.quote?.[0]?.volume || [];
   const history = timestamps.map((timestamp, index) => ({
     date: new Date(timestamp * 1000).toISOString().slice(0, 10),
-    close: Number(closes[index])
+    close: Number(closes[index]),
+    volume: Number.isFinite(Number(volumes[index])) && Number(volumes[index]) > 0 ? Number(volumes[index]) : 0
   })).filter((row) => Number.isFinite(row.close) && row.close > 0);
+  const latestVolume = Number(result?.meta?.regularMarketVolume)
+    || [...history].reverse().find((row) => Number.isFinite(Number(row.volume)) && Number(row.volume) > 0)?.volume
+    || 0;
   return {
     price,
     provider: "Yahoo delayed quote",
+    date: result.meta?.regularMarketTime
+      ? new Date(result.meta.regularMarketTime * 1000).toISOString().slice(0, 10)
+      : "",
     time: result.meta?.regularMarketTime
       ? new Date(result.meta.regularMarketTime * 1000).toLocaleString([], { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
       : "",
+    volume: Number.isFinite(Number(latestVolume)) && Number(latestVolume) > 0 ? Number(latestVolume) : 0,
     history
   };
 }
 
 function liveRefreshInterval() {
   const day = new Date().getDay();
-  return day === 0 || day === 6 ? 15 * 60 * 1000 : 60 * 1000;
+  return day === 0 || day === 6 ? 5 * 60 * 1000 : 30 * 1000;
+}
+
+function queueImmediateHostedRefresh() {
+  if (window.location.protocol === "file:") return;
+  const now = Date.now();
+  if (now - lastImmediateHostedRefreshAt < 12000) return;
+  window.clearTimeout(immediateHostedRefreshTimer);
+  immediateHostedRefreshTimer = window.setTimeout(() => {
+    lastImmediateHostedRefreshAt = Date.now();
+    void refreshLivePrices();
+    void refreshHostedStaticDividendSnapshots();
+    void refreshHostedDividendSweep();
+  }, 250);
 }
 
 function historyIntervalForRange() {
@@ -2088,16 +2637,69 @@ async function fetchHostedMarketData(visibleStocks, interval = historyIntervalFo
 }
 
 function applyQuoteToStock(stock, quote) {
-  stock.price = Number(quote.price.toFixed(stock.currency === "GBP" && quote.price > 100 ? 0 : 2));
-  stock.liveStatus = `${quote.provider}${quote.time ? ` ${quote.time}` : ""}`;
-  updateDailyRsiHistoryFromQuote(stock, quote);
+  const livePrice = Number(quote?.price);
+  if (Number.isFinite(livePrice) && livePrice > 0) {
+    stock.price = Number(livePrice.toFixed(stock.currency === "GBP" && livePrice > 100 ? 0 : 2));
+    stock.liveStatus = `${quote.provider}${quote.time ? ` ${quote.time}` : ""}`;
+    updateDailyRsiHistoryFromQuote(stock, quote);
+  }
+  if (quote?.liquidity) {
+    applyLiquidityPayloadToStock(stock, quote.liquidity);
+  } else {
+    updateLiquiditySnapshotFromMarketData(stock, quote, Array.isArray(quote?.history) ? quote.history : []);
+  }
+  if (quote?.rsi) {
+    applyVerifiedRsiPayloadToStock(stock, quote.rsi);
+  }
   applyDividendDataToStock(stock, quote.dividend);
+  reanalyzeStockMetrics(stock);
 }
 
 function quoteDateForHistory(quote) {
   const raw = String(quote?.date || quote?.time || "");
   const match = raw.match(/\d{4}-\d{2}-\d{2}/);
   return match ? match[0] : new Date().toISOString().slice(0, 10);
+}
+
+function rsiLabelForValue(value) {
+  if (!Number.isFinite(Number(value))) return "Not enough data";
+  if (Number(value) >= 70) return "Overbought";
+  if (Number(value) <= 30) return "Oversold";
+  return "Neutral";
+}
+
+function applyVerifiedRsiPayloadToStock(stock, payload) {
+  if (!payload || typeof payload !== "object") return false;
+  const values = Array.isArray(payload.dailyHistory)
+    ? payload.dailyHistory.map(Number).filter((value) => Number.isFinite(value) && value > 0)
+    : [];
+  const labels = Array.isArray(payload.dailyLabels)
+    ? payload.dailyLabels.map((value) => String(value || "")).filter(Boolean)
+    : [];
+
+  if (values.length >= 15) {
+    stock.historyByRange = { ...(stock.historyByRange || {}), daily: values.slice(-60) };
+    if (labels.length === values.length) {
+      stock.historyLabelsByRange = { ...(stock.historyLabelsByRange || {}), daily: labels.slice(-60) };
+    }
+    stock.dailyHistoryVerified = true;
+    stock.dailyHistoryProvider = payload.provider || stock.dailyHistoryProvider || "Verified daily history";
+    if (!stock.liveStatus || /curated/i.test(stock.liveStatus)) {
+      applyFallbackPriceFromSeries(stock, values, labels, payload.provider || stock.dailyHistoryProvider || "Verified daily history");
+    }
+  }
+
+  const numericValue = Number(payload.value);
+  if (!Number.isFinite(numericValue)) return values.length >= 15;
+  stock.verifiedRsiData = {
+    value: Math.round(numericValue),
+    label: payload.label || rsiLabelForValue(numericValue),
+    status: payload.status || "Verified",
+    provider: payload.provider || stock.dailyHistoryProvider || "Verified daily history",
+    closesCount: Number(payload.closesCount) || values.length || stock.historyByRange?.daily?.length || 0,
+    verifiedAt: payload.verifiedAt || new Date().toISOString()
+  };
+  return true;
 }
 
 function updateDailyRsiHistoryFromQuote(stock, quote) {
@@ -2120,6 +2722,21 @@ function updateDailyRsiHistoryFromQuote(stock, quote) {
   }
   stock.historyByRange = { ...(stock.historyByRange || {}), daily: values.slice(-60) };
   stock.historyLabelsByRange = { ...(stock.historyLabelsByRange || {}), daily: labels.slice(-60) };
+  if (stock.dailyHistoryVerified || stock.verifiedRsiData?.status === "Verified") {
+    const refreshed = calculateRsi(values, 14);
+    if (Number.isFinite(refreshed)) {
+      stock.dailyHistoryVerified = true;
+      stock.verifiedRsiData = {
+        ...(stock.verifiedRsiData || {}),
+        value: Math.round(refreshed),
+        label: rsiLabelForValue(refreshed),
+        status: "Verified",
+        provider: stock.verifiedRsiData?.provider || stock.dailyHistoryProvider || "Verified daily history",
+        closesCount: values.length,
+        verifiedAt: new Date().toISOString()
+      };
+    }
+  }
   return true;
 }
 
@@ -2130,8 +2747,18 @@ function applyHistoryToStock(stock, historyPoints, rangeKey = chartRange) {
   if (closes.length < 3) return;
   stock.historyByRange = { ...(stock.historyByRange || {}), [rangeKey]: closes };
   stock.historyLabelsByRange = { ...(stock.historyLabelsByRange || {}), [rangeKey]: labels };
+  const volumes = historyPoints.map((row) => Number(row?.volume)).filter((value) => Number.isFinite(value) && value > 0);
+  if (volumes.length) {
+    stock.historyVolumeByRange = {
+      ...(stock.historyVolumeByRange || {}),
+      [rangeKey]: historyPoints.map((row) => (Number.isFinite(Number(row?.volume)) && Number(row.volume) > 0 ? Number(row.volume) : 0)).slice(-120)
+    };
+  }
   if (rangeKey === "monthly") {
     stock.history = closes.slice(-120);
+  }
+  if (rangeKey === "daily" && historyPoints.some((row) => Number.isFinite(Number(row?.volume)) && Number(row.volume) > 0)) {
+    updateLiquiditySnapshotFromMarketData(stock, { price: Number(stock.price), provider: stock.liveStatus || "Live daily history" }, historyPoints);
   }
 }
 
@@ -2212,8 +2839,26 @@ function applyDividendDataToStock(stock, dividend) {
     stock.lastDividendAmount = Number(dividend.amount);
     changed = true;
   }
+  if (Number(dividend.annualDividend) > 0) {
+    stock.annualDividend = Number(dividend.annualDividend);
+    changed = true;
+  }
   if (dividend.currency) {
     stock.dividendCurrency = dividend.currency;
+  }
+  if (Number.isFinite(Number(dividend.payoutRatio)) && Number(dividend.payoutRatio) > 0) {
+    stock.payoutRatio = Number(Number(dividend.payoutRatio).toFixed(2));
+    stock.payoutSource = dividend.payoutProvider || dividend.provider || stock.payoutSource || "";
+    stock.payoutVerifiedAt = dividend.verifiedAt || stock.payoutVerifiedAt || "";
+    stock.payoutStatus = "Verified";
+    changed = true;
+  }
+  if (Number.isFinite(Number(dividend.dividendGrowthYears)) && Number(dividend.dividendGrowthYears) >= 0) {
+    stock.divGrowth = Number(dividend.dividendGrowthYears);
+    changed = true;
+  }
+  if (Number.isFinite(Number(dividend.dividendGrowthRate))) {
+    stock.dividendGrowthRate = Number(dividend.dividendGrowthRate);
   }
   if (Array.isArray(dividend.history) && dividend.history.length) {
     stock.verifiedDividendHistory = dividend.history.map((entry) => ({
@@ -2251,6 +2896,7 @@ function applyDividendDataToStock(stock, dividend) {
       : `${providerText}: recent dividend event history verified; next qualification/payment date still needs an official declaration or a paid corporate-actions feed.`;
   }
   if (dividend.note) stock.dividendDataNote = dividend.note;
+  reanalyzeStockMetrics(stock);
   return changed;
 }
 
@@ -2519,6 +3165,13 @@ async function refreshSelectedRsiHistory() {
       applyQuoteToStock(stock, quote);
       if (Array.isArray(quote.history) && quote.history.length >= 15) {
         applyHistoryToStock(stock, quote.history, "daily");
+        applyVerifiedRsiPayloadToStock(stock, {
+          ...(quote.rsi || {}),
+          provider: quote.rsi?.provider || quote.provider || "Live daily history",
+          dailyHistory: quote.history.map((row) => row.close),
+          dailyLabels: quote.history.map((row) => row.date),
+          closesCount: quote.history.length
+        });
         return 1;
       }
     }
@@ -2526,105 +3179,119 @@ async function refreshSelectedRsiHistory() {
   const dailyHistory = await fetchStooqHistory(stock, "d").catch(() => null);
   if (Array.isArray(dailyHistory) && dailyHistory.length >= 15) {
     applyHistoryToStock(stock, dailyHistory, "daily");
+    applyVerifiedRsiPayloadToStock(stock, {
+      provider: "Stooq daily history",
+      dailyHistory: dailyHistory.map((row) => row.close),
+      dailyLabels: dailyHistory.map((row) => row.date),
+      closesCount: dailyHistory.length
+    });
     return 1;
   }
   return 0;
 }
 
 async function refreshLivePrices(manual = false) {
+  if (liveRefreshInFlight) return;
+  liveRefreshInFlight = true;
   refreshPrices.disabled = true;
   refreshPrices.textContent = "Updating...";
-  let updated = 0;
-  let chartUpdates = 0;
-  let dividendUpdates = 0;
-  const filteredStocks = getFilteredStocks();
-  const autoLimit = window.location.protocol === "file:" ? 120 : filteredStocks.length;
-  const visibleStocks = manual ? filteredStocks : filteredStocks.slice(0, autoLimit);
-  const includeDividendData = manual;
+  try {
+    let updated = 0;
+    let chartUpdates = 0;
+    let dividendUpdates = 0;
+    const marketUniverse = stocksForSelectedMarkets();
+    const autoLimit = window.location.protocol === "file:" ? 120 : marketUniverse.length;
+    const visibleStocks = manual ? marketUniverse : marketUniverse.slice(0, autoLimit);
+    const includeDividendData = manual;
 
-  const hostedData = await fetchHostedMarketData(visibleStocks, historyIntervalForRange(), {
-    dividends: includeDividendData
-  }).catch(() => null);
-  if (hostedData?.quotes) {
-    visibleStocks.forEach((stock) => {
-      const quote = hostedData.quotes[`${stock.market}:${stock.ticker}`];
-      if (!quote) return;
-      applyQuoteToStock(stock, quote);
-      if (quote.dividend) dividendUpdates += 1;
-      if (Array.isArray(quote.history) && quote.history.length >= 3) {
-        applyHistoryToStock(stock, quote.history, chartRange);
-        chartUpdates += 1;
-      }
-      updated += 1;
-    });
-  }
-
-  if (!hostedData) {
-    const quoteMap = await fetchStooqQuotesBatch(visibleStocks).catch(() => new Map());
-    const updatedKeys = new Set();
-    visibleStocks.forEach((stock) => {
-      const key = `${stock.market}:${stock.ticker}`;
-      const quote = quoteMap.get(key);
-      if (!quote) return;
-      applyQuoteToStock(stock, quote);
-      updatedKeys.add(key);
-      updated += 1;
-    });
-
-    const yahooFallbackStocks = visibleStocks
-      .filter((stock) => !updatedKeys.has(`${stock.market}:${stock.ticker}`) && yahooSymbol(stock))
-      .slice(0, manual ? visibleStocks.length : 40);
-    for (const batch of chunkItems(yahooFallbackStocks, 25)) {
-      if (manual) {
-        refreshPrices.textContent = `Updating ${Math.min(updated + batch.length, visibleStocks.length)}/${visibleStocks.length}...`;
-      }
-      await Promise.allSettled(batch.map(async (stock) => {
-        const quote = await fetchYahooChart(stock).catch(() => null);
+    const hostedData = await fetchHostedMarketData(visibleStocks, historyIntervalForRange(), {
+      dividends: includeDividendData
+    }).catch(() => null);
+    if (hostedData?.quotes) {
+      visibleStocks.forEach((stock) => {
+        const quote = hostedData.quotes[`${stock.market}:${stock.ticker}`];
         if (!quote) return;
         applyQuoteToStock(stock, quote);
-        if (quote.history?.length >= 3) {
+        if (quote.dividend) dividendUpdates += 1;
+        if (Array.isArray(quote.history) && quote.history.length >= 3) {
           applyHistoryToStock(stock, quote.history, chartRange);
           chartUpdates += 1;
         }
         updated += 1;
-        updatedKeys.add(`${stock.market}:${stock.ticker}`);
+      });
+    }
+
+    if (!hostedData) {
+      const quoteMap = await fetchStooqQuotesBatch(visibleStocks).catch(() => new Map());
+      const updatedKeys = new Set();
+      visibleStocks.forEach((stock) => {
+        const key = `${stock.market}:${stock.ticker}`;
+        const quote = quoteMap.get(key);
+        if (!quote) return;
+        applyQuoteToStock(stock, quote);
+        updatedKeys.add(key);
+        updated += 1;
+      });
+
+      const yahooFallbackStocks = visibleStocks
+        .filter((stock) => !updatedKeys.has(`${stock.market}:${stock.ticker}`) && yahooSymbol(stock))
+        .slice(0, manual ? visibleStocks.length : 40);
+      for (const batch of chunkItems(yahooFallbackStocks, 25)) {
+        if (manual) {
+          refreshPrices.textContent = `Updating ${Math.min(updated + batch.length, visibleStocks.length)}/${visibleStocks.length}...`;
+        }
+        await Promise.allSettled(batch.map(async (stock) => {
+          const quote = await fetchYahooChart(stock).catch(() => null);
+          if (!quote) return;
+          applyQuoteToStock(stock, quote);
+          if (quote.history?.length >= 3) {
+            applyHistoryToStock(stock, quote.history, chartRange);
+            chartUpdates += 1;
+          }
+          updated += 1;
+          updatedKeys.add(`${stock.market}:${stock.ticker}`);
+        }));
+      }
+
+      const chartStocks = [
+        stocks.find((stock) => stock.ticker === selectedTicker),
+        ...visibleStocks.slice(0, manual ? 40 : 12)
+      ].filter(Boolean);
+      const uniqueChartStocks = [...new Map(chartStocks.map((stock) => [`${stock.market}:${stock.ticker}`, stock])).values()];
+      await Promise.allSettled(uniqueChartStocks.map(async (stock) => {
+        if (stock.historyByRange?.[chartRange]?.length >= 3) return;
+        const history = await fetchStooqHistory(stock).catch(() => null);
+        if (!history) return;
+        applyHistoryToStock(stock, history, chartRange);
+        chartUpdates += 1;
       }));
     }
 
-    const chartStocks = [
-      stocks.find((stock) => stock.ticker === selectedTicker),
-      ...visibleStocks.slice(0, manual ? 40 : 12)
-    ].filter(Boolean);
-    const uniqueChartStocks = [...new Map(chartStocks.map((stock) => [`${stock.market}:${stock.ticker}`, stock])).values()];
-    await Promise.allSettled(uniqueChartStocks.map(async (stock) => {
-      if (stock.historyByRange?.[chartRange]?.length >= 3) return;
-      const history = await fetchStooqHistory(stock).catch(() => null);
-      if (!history) return;
-      applyHistoryToStock(stock, history, chartRange);
-      chartUpdates += 1;
-    }));
+    const rsiUpdates = await refreshSelectedRsiHistory();
+    const snapshotRefresh = manual ? await refreshHostedStaticDividendSnapshots().catch(() => ({ refreshed: false, rows: 0 })) : { refreshed: false, rows: 0 };
+    dividendUpdates += Number(snapshotRefresh.rows || 0);
+
+    visibleStocks.forEach(reanalyzeStockMetrics);
+
+    if (updated === 0 && rsiUpdates === 0 && dividendUpdates === 0) {
+      if (lastUpdated) lastUpdated.textContent = "Waiting for the next published live market or dividend update";
+    } else {
+      const now = new Date();
+      const day = now.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+      const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const skipped = Math.max(0, visibleStocks.length - updated);
+      const refreshSummary = updated > 0
+        ? `${updated} stocks, ${chartUpdates} charts, ${dividendUpdates} dividend records, RSI and liquidity refreshed`
+        : "RSI and liquidity refreshed";
+      if (lastUpdated) lastUpdated.textContent = `${refreshSummary} for ${day} at ${time}${updated > 0 && skipped ? `; ${skipped} kept curated` : ""}`;
+    }
+
+    rerenderDividendSurfaces();
+  } finally {
+    liveRefreshInFlight = false;
+    refreshPrices.disabled = false;
+    refreshPrices.textContent = "Refresh live prices";
   }
-
-  const rsiUpdates = await refreshSelectedRsiHistory();
-  const snapshotRefresh = manual ? await refreshHostedStaticDividendSnapshots().catch(() => ({ refreshed: false, rows: 0 })) : { refreshed: false, rows: 0 };
-  dividendUpdates += Number(snapshotRefresh.rows || 0);
-
-  if (updated === 0 && rsiUpdates === 0 && dividendUpdates === 0) {
-    if (lastUpdated) lastUpdated.textContent = "Live update unavailable; using curated data";
-  } else {
-    const now = new Date();
-    const day = now.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-    const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const skipped = Math.max(0, visibleStocks.length - updated);
-    const refreshSummary = updated > 0
-      ? `${updated} prices, ${chartUpdates} charts, ${dividendUpdates} dividend records and RSI refreshed`
-      : "RSI refreshed";
-    if (lastUpdated) lastUpdated.textContent = `${refreshSummary} for ${day} at ${time}${updated > 0 && skipped ? `; ${skipped} kept curated` : ""}`;
-  }
-
-  refreshPrices.disabled = false;
-  refreshPrices.textContent = "Refresh live prices";
-  rerenderDividendSurfaces();
 }
 
 function populateCategories() {
@@ -3201,8 +3868,8 @@ function getFilteredStocks() {
       return (a.price - b.price) * direction;
     }
     if (sortField.value === "score") {
-      const aScore = a.buyScore ?? buyScoreFromMetrics({ growthYears: a.divGrowth, payoutRatio: a.payoutRatio, safety: a.safety, dividendYield: a.dividendYield });
-      const bScore = b.buyScore ?? buyScoreFromMetrics({ growthYears: b.divGrowth, payoutRatio: b.payoutRatio, safety: b.safety, dividendYield: b.dividendYield });
+      const aScore = finalQualityScore(a);
+      const bScore = finalQualityScore(b);
       return (aScore - bScore) * direction;
     }
     return a.name.localeCompare(b.name) * direction;
@@ -3211,6 +3878,7 @@ function getFilteredStocks() {
 
 function renderList() {
   const filtered = getFilteredStocks();
+  renderStockOfDay();
   visibleCount.textContent = `${filtered.length} shown`;
   if (stockCount) stockCount.textContent = `${stocks.length} stocks`;
   if (buyCount) buyCount.textContent = `${stocks.filter((stock) => stock.signal === "Buy").length} buy ideas`;
@@ -3231,7 +3899,7 @@ function renderList() {
       </span>
       <span class="company">
         <span>${stock.name}</span>
-        <span class="score-pill">Score ${stock.buyScore ?? buyScoreFromMetrics({ growthYears: stock.divGrowth, payoutRatio: stock.payoutRatio, safety: stock.safety, dividendYield: stock.dividendYield })}</span>
+        <span class="score-pill">Score ${finalQualityScore(stock)}</span>
       </span>
       <span class="meta">
         <span class="chip">${stock.market}</span>
@@ -3263,10 +3931,79 @@ function hasVerifiedDividendDate(stock, fieldName, dateValue) {
     && stock.verifiedDividendHistory.some((entry) => entry?.[historyField] === dateValue);
 }
 
+function stockOfDayRank(stock) {
+  const score = finalQualityScore(stock);
+  const yieldScore = stock.dividendYield >= 2 && stock.dividendYield <= 8
+    ? 10
+    : stock.dividendYield > 8 && stock.dividendYield <= 10
+      ? 3
+      : 0;
+  const payoutScore = stock.payoutRatio > 0 && stock.payoutRatio <= 70
+    ? 10
+    : stock.payoutRatio <= 90
+      ? 4
+      : -8;
+  const safetyScore = Number(stock.safety || 0) / 10;
+  const signalScore = stock.signal === "Buy" ? 18 : stock.signal === "Hold" ? 4 : -12;
+  const sizeScore = Math.min(8, Math.log10(Math.max(Number(stock.marketCap || 0), 1)) / 2);
+  return score + yieldScore + payoutScore + safetyScore + signalScore + sizeScore;
+}
+
+function stockOfDayReason(stock) {
+  const parts = [];
+  if (stock.signal === "Buy") parts.push("buy signal");
+  if (finalQualityScore(stock) >= 70) parts.push("strong buy score");
+  if (stock.safety >= 70) parts.push("solid safety");
+  if (stock.payoutRatio > 0 && stock.payoutRatio <= 70) parts.push("controlled payout");
+  if (stock.dividendYield >= 2 && stock.dividendYield <= 8) parts.push("healthy yield");
+  return parts.length
+    ? `Best daily match for ${parts.slice(0, 3).join(", ")}.`
+    : "Best available daily match across the tracked platform universe.";
+}
+
+function bestStockOfDay() {
+  const buyCandidates = stocks.filter((stock) => stock.signal === "Buy" && stock.dividendYield > 0 && stock.payoutRatio > 0);
+  const candidates = buyCandidates.length ? buyCandidates : stocks;
+  return [...candidates].sort((a, b) => {
+    const rankDiff = stockOfDayRank(b) - stockOfDayRank(a);
+    if (rankDiff !== 0) return rankDiff;
+    const scoreDiff = finalQualityScore(b) - finalQualityScore(a);
+    if (scoreDiff !== 0) return scoreDiff;
+    return (b.marketCap || 0) - (a.marketCap || 0);
+  })[0] || null;
+}
+
+function renderStockOfDay() {
+  if (!stockOfDayCard) return;
+  const stock = bestStockOfDay();
+  if (!stock) {
+    stockOfDayCard.hidden = true;
+    stockOfDayCard.innerHTML = "";
+    return;
+  }
+  const score = finalQualityScore(stock);
+  const today = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  }).format(new Date());
+  stockOfDayCard.hidden = false;
+  stockOfDayCard.innerHTML = `
+    <button class="stock-of-day-button" type="button" data-stock-key="${stockKey(stock)}">
+      <span class="stock-of-day-kicker">Stock of the day · ${today}</span>
+      <span class="stock-of-day-main">
+        <strong>${stock.ticker} · ${stock.name}</strong>
+        <span>${formatMoney(stock)} · Score ${score}/100 · ${stock.dividendYield}% yield</span>
+      </span>
+      <span class="stock-of-day-action">Open chart</span>
+    </button>
+  `;
+}
+
 function annualDividendPerShare(stock) {
   return Number(stock.annualDividend || 0) > 0
     ? Number(stock.annualDividend)
-    : stock.price * (stock.dividendYield / 100);
+    : bestAnnualDividendEstimate(stock);
 }
 
 function dividendPaymentsPerYear(stock) {
@@ -3711,7 +4448,7 @@ function stockRowsForCsv(items) {
       stock.currency,
       stock.dividendYield,
       stock.signal,
-      stock.buyScore ?? buyScoreFromMetrics({ growthYears: stock.divGrowth, payoutRatio: stock.payoutRatio, safety: stock.safety, dividendYield: stock.dividendYield }),
+      finalQualityScore(stock),
       stock.payoutRatio,
       stock.safety
     ])
@@ -3730,7 +4467,7 @@ function watchlistRowsForCsv(items) {
       stock.currency,
       stock.dividendYield,
       stock.signal,
-      stock.buyScore ?? buyScoreFromMetrics({ growthYears: stock.divGrowth, payoutRatio: stock.payoutRatio, safety: stock.safety, dividendYield: stock.dividendYield }),
+      finalQualityScore(stock),
       stock.payoutRatio,
       stock.safety
     ])
@@ -4119,17 +4856,50 @@ function calculateRsi(values, period = 14) {
 }
 
 function rsiProfile(stock) {
-  const dailyHistory = stock.historyByRange?.daily?.length >= 15
+  const hasVerifiedDailyHistory = Boolean(stock.dailyHistoryVerified)
+    && Array.isArray(stock.historyByRange?.daily)
+    && stock.historyByRange.daily.length >= 15;
+  const dailyHistory = hasVerifiedDailyHistory
     ? stock.historyByRange.daily
     : buildRangeHistory(stock, "daily");
   const rsi = calculateRsi(dailyHistory, 14);
+  if (!hasVerifiedDailyHistory && Number.isFinite(Number(stock.verifiedRsiData?.value))) {
+    const directValue = Math.round(Number(stock.verifiedRsiData.value));
+    return {
+      value: directValue,
+      label: stock.verifiedRsiData.label || rsiLabelForValue(directValue),
+      tone: directValue >= 70 ? "sell" : directValue <= 30 ? "buy" : "hold",
+      sourceLabel: "Verified",
+      sourceTone: "buy"
+    };
+  }
   if (!Number.isFinite(rsi)) {
-    return { value: "N/A", label: "Not enough data", tone: "neutral" };
+    return {
+      value: "N/A",
+      label: "Not enough data",
+      tone: "neutral",
+      sourceLabel: "Unavailable",
+      sourceTone: "neutral"
+    };
+  }
+  if (!hasVerifiedDailyHistory && !Number.isFinite(Number(stock.verifiedRsiData?.value)) && stockMarkedUnverifiedInCache(stock)) {
+    return {
+      value: "N/A",
+      label: "Awaiting verified source",
+      tone: "neutral",
+      sourceLabel: "Unavailable",
+      sourceTone: "neutral"
+    };
   }
   const value = Math.round(rsi);
-  if (value >= 70) return { value, label: "Overbought", tone: "sell" };
-  if (value <= 30) return { value, label: "Oversold", tone: "buy" };
-  return { value, label: "Neutral", tone: "hold" };
+  const base = {
+    value,
+    sourceLabel: hasVerifiedDailyHistory ? "Verified" : "Estimated",
+    sourceTone: hasVerifiedDailyHistory ? "buy" : "hold"
+  };
+  if (value >= 70) return { ...base, label: "Overbought", tone: "sell" };
+  if (value <= 30) return { ...base, label: "Oversold", tone: "buy" };
+  return { ...base, label: "Neutral", tone: "hold" };
 }
 
 function stockAnalysisDecision(stock) {
@@ -4174,16 +4944,18 @@ function buildStockAnalysis(stock) {
         <strong>${decision.verdict}</strong>
         <p>${decision.summary}</p>
       </div>
-      <div class="analysis-grid">
-        <div class="analysis-card">
-          <span>14 Day RSI</span>
-          <strong>${rsi.value}${rsi.value === "N/A" ? "" : "/100"} - ${rsi.label}</strong>
-          <p>RSI estimates short-term price momentum. Above 70 can mean overbought, below 30 can mean oversold, and the middle range is usually neutral.</p>
-        </div>
-        <div class="analysis-card dividend-calendar-analysis">
-          <span>Dividend calendar</span>
-          <strong>${formatDate(stock.exDate)} qualification date</strong>
-          <p>Record date: ${formatDate(stock.recordDate)}. Payment date: ${formatDate(stock.payDate)}. ${dividendSourceName(stock)}</p>
+        <div class="analysis-grid">
+          <div class="analysis-card">
+            <span>14 Day RSI</span>
+            <strong>${rsi.value}${rsi.value === "N/A" ? "" : "/100"} - ${rsi.label}</strong>
+            <p class="analysis-rsi-label"><span class="chip ${rsi.sourceTone}">${rsi.sourceLabel}</span></p>
+            <p>RSI estimates short-term price momentum. Above 70 can mean overbought, below 30 can mean oversold, and the middle range is usually neutral.</p>
+          </div>
+          <div class="analysis-card dividend-calendar-analysis">
+            <span>Dividend calendar</span>
+            <strong>${formatDate(stock.exDate)} qualification date</strong>
+          <p>Record date: ${formatDate(stock.recordDate)}. Payment date: ${formatDate(stock.payDate)}.</p>
+          <p class="analysis-source-line">Source: ${dividendSourceName(stock)}</p>
         </div>
       </div>
       <div class="analysis-note">
@@ -4210,7 +4982,7 @@ function renderDetail(stock) {
   selectedStock = stock;
   detailMarket.textContent = `${stock.market} · ${stock.category}`;
   detailName.textContent = stock.name;
-  detailTicker.textContent = `${stock.ticker} · ${stock.liveStatus || "Curated price"} ${formatMoney(stock)} · ${stock.valuation} valuation`;
+  detailTicker.textContent = `${stock.ticker} · ${formatMoney(stock)} · ${stock.valuation} valuation`;
   detailSignal.textContent = stock.signal;
   detailSignal.className = `signal ${stock.signal.toLowerCase()}`;
 
@@ -4219,11 +4991,11 @@ function renderDetail(stock) {
     ["Price", formatMoney(stock)],
     ["Market cap", formatMarketCap(stock.marketCap, stock.currency)],
     ["Dividend yield", `${stock.dividendYield}%`],
-    ["Buy score", `${stock.buyScore ?? buyScoreFromMetrics({ growthYears: stock.divGrowth, payoutRatio: stock.payoutRatio, safety: stock.safety, dividendYield: stock.dividendYield })}/100`],
+    ["Buy score", `${finalQualityScore(stock)}/100`],
     ["Payout ratio", `${stock.payoutRatio}%`],
     ["Dividend growth", `${stock.divGrowth}%`],
     ["Safety score", `${stock.safety}/100`],
-    ["14 Day RSI", `${rsi.value}${rsi.value === "N/A" ? "" : "/100"} (${rsi.label})`],
+    ["14 Day RSI", `${rsi.value}${rsi.value === "N/A" ? "" : "/100"} (${rsi.label}) - ${rsi.sourceLabel}`],
     ["Dividend frequency", dividendFrequency(stock)]
   ].map(([label, value]) => `<div class="metric"><span>${label}</span><strong>${value}</strong></div>`).join("");
   metrics.innerHTML = `${metricCards}
@@ -4298,6 +5070,23 @@ function openStockChart(ticker) {
   activeChartPointIndex = -1;
   activeChartStockKey = "";
   selectStock(ticker);
+  chartTooltip.hidden = true;
+  topbarQuickPanes.forEach((pane) => {
+    pane.open = false;
+  });
+  canvas.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function openStockChartByKey(key) {
+  const stock = findStockByKey(key);
+  if (!stock) return;
+  activeChartPointIndex = -1;
+  activeChartStockKey = "";
+  selectedTicker = stock.ticker;
+  renderList();
+  renderDetail(stock);
+  scheduleStockDividendVerification(stock);
+  saveDashboardState();
   chartTooltip.hidden = true;
   topbarQuickPanes.forEach((pane) => {
     pane.open = false;
@@ -4545,6 +5334,12 @@ liteSearchInput?.addEventListener("input", () => {
   rerenderFilteredSelection();
 });
 
+stockOfDayCard?.addEventListener("click", (event) => {
+  const button = event.target.closest(".stock-of-day-button");
+  if (!button) return;
+  openStockChartByKey(button.dataset.stockKey || "");
+});
+
 refreshPrices.addEventListener("click", () => refreshLivePrices(true));
 canvas.addEventListener("pointerdown", (event) => {
   chartPointerActive = true;
@@ -4590,11 +5385,14 @@ window.addEventListener("scroll", () => {
 window.addEventListener("beforeunload", saveDashboardState);
 
 async function bootstrapDashboard() {
+  syncRefreshButtonVisibility();
   populateCategories();
   renderIpoPanel([]);
   await renderAuthState();
   startInactivityLogout();
   renderInitialSelection();
+  applyRequestedStockSelection();
+  maybeShowDailyStockPopup();
   if (window.location.protocol !== "file:") {
     refreshLivePrices();
     refreshHostedStaticDividendSnapshots();
@@ -4618,3 +5416,17 @@ setInterval(() => {
 setInterval(() => {
   if (!document.hidden) void checkAccessStillActive();
 }, 60 * 1000);
+
+window.addEventListener("focus", () => {
+  queueImmediateHostedRefresh();
+});
+
+window.addEventListener("online", () => {
+  queueImmediateHostedRefresh();
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    queueImmediateHostedRefresh();
+  }
+});

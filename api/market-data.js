@@ -1,5 +1,12 @@
+const fs = require("fs");
+const path = require("path");
 const { fetchPublicDividendPageData } = require("../lib/stockanalysis-dividends");
 const { fetchNigeriaPublicDividendData } = require("../lib/nigeria-public-dividends");
+const { fetchVerifiedRsiFallbackHistory } = require("../lib/verified-rsi-sources");
+const { loadStockUniverse } = require("../lib/_stock-universe");
+
+const verifiedRsiCachePath = path.join(__dirname, "..", "verified-rsi-cache.json");
+let verifiedRsiCacheState = { mtimeMs: 0, data: {} };
 
 const quoteSuffix = {
   US: "us",
@@ -18,12 +25,106 @@ const yahooSymbolOverrides = {
   "Europe:ASML": "ASML.AS",
   "Europe:UL": "UL",
   "Europe:RIO": "RIO.L",
+  "UK:BUNZL": "BNZL.L",
+  "UK:BDEV": "BTRW.L",
+  "Canada:CNI": "CNR.TO",
+  "Canada:GIB": "GIB-A.TO",
   "Asia:TM": "7203.T",
   "Asia:MUFG": "8306.T",
   "Asia:TSM": "TSM",
   "Asia:HDB": "HDB",
-  "Asia:INFY": "INFY"
+  "Asia:INFY": "INFY",
+  "Asia:SONY": "6758.T",
+  "Asia:JD": "JD",
+  "Asia:BABA": "BABA",
+  "Asia:CHT": "CHT",
+  "Asia:TAK": "TAK",
+  "Asia:KB": "KB",
+  "Asia:SMFG": "SMFG"
 };
+
+let stockNameLookup = null;
+
+const CORPORATE_NAME_STOP_WORDS = new Set([
+  "adr",
+  "ag",
+  "and",
+  "bank",
+  "co",
+  "company",
+  "corp",
+  "corporation",
+  "cv",
+  "de",
+  "group",
+  "holdings",
+  "inc",
+  "incorporated",
+  "limited",
+  "ltd",
+  "n",
+  "nv",
+  "p",
+  "pcl",
+  "plc",
+  "s",
+  "sa",
+  "sab",
+  "se",
+  "services",
+  "the"
+]);
+
+function loadVerifiedRsiCache() {
+  try {
+    const stat = fs.statSync(verifiedRsiCachePath);
+    if (verifiedRsiCacheState.mtimeMs === stat.mtimeMs && verifiedRsiCacheState.data) {
+      return verifiedRsiCacheState.data;
+    }
+    const parsed = JSON.parse(fs.readFileSync(verifiedRsiCachePath, "utf8"));
+    verifiedRsiCacheState = {
+      mtimeMs: stat.mtimeMs,
+      data: parsed?.data && typeof parsed.data === "object" ? parsed.data : parsed || {}
+    };
+  } catch {
+    verifiedRsiCacheState = { mtimeMs: 0, data: {} };
+  }
+  return verifiedRsiCacheState.data;
+}
+
+function verifiedRsiCacheEntry(ticker, market) {
+  return loadVerifiedRsiCache()[`${market}:${ticker}`] || null;
+}
+
+function loadStockNameLookup() {
+  if (stockNameLookup) return stockNameLookup;
+  try {
+    const { stocks } = loadStockUniverse();
+    stockNameLookup = new Map(
+      [...new Map(stocks.map((stock) => [`${stock.market}:${stock.ticker}`, stock])).values()]
+        .map((stock) => [`${stock.market}:${stock.ticker}`, String(stock.name || "").trim()])
+    );
+  } catch {
+    stockNameLookup = new Map();
+  }
+  return stockNameLookup;
+}
+
+function stockCompanyName(ticker, market) {
+  return loadStockNameLookup().get(`${market}:${ticker}`) || "";
+}
+
+function latestPriceFromHistory(history = [], provider = "") {
+  const rows = Array.isArray(history) ? history.filter((row) => Number.isFinite(Number(row?.close)) && Number(row.close) > 0) : [];
+  if (!rows.length) return null;
+  const latest = rows[rows.length - 1];
+  return {
+    price: Number(latest.close),
+    date: String(latest.date || ""),
+    time: "",
+    provider
+  };
+}
 
 function stooqSymbol(ticker, market) {
   const clean = String(ticker || "").replace(/\./g, "").toLowerCase();
@@ -51,10 +152,181 @@ function uniqueSymbols(...symbols) {
   return [...new Set(symbols.map((symbol) => String(symbol || "").trim()).filter(Boolean))];
 }
 
+function yahooSymbolCandidates(ticker, market) {
+  const clean = String(ticker || "").trim().replace(/\s+/g, "-");
+  const normalized = clean.replace(/\./g, "-");
+  return uniqueSymbols(
+    yahooSymbolOverrides[`${market}:${ticker}`],
+    yahooSymbol(ticker, market),
+    market === "Canada" ? `${normalized}.TO` : "",
+    market === "UK" ? `${normalized}.L` : "",
+    market === "Europe" ? `${normalized}.DE` : "",
+    market === "Asia" ? `${normalized}.T` : "",
+    clean
+  );
+}
+
+function normalizeCompanyName(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(" ")
+    .map((token) => token.trim())
+    .filter((token) => token && !CORPORATE_NAME_STOP_WORDS.has(token));
+}
+
+function namesLikelyMatch(expectedName, actualName) {
+  if (!expectedName || !actualName) return true;
+  const expectedTokens = normalizeCompanyName(expectedName);
+  const actualTokens = normalizeCompanyName(actualName);
+  if (!expectedTokens.length || !actualTokens.length) return true;
+  const expectedJoined = expectedTokens.join(" ");
+  const actualJoined = actualTokens.join(" ");
+  const expectedCompact = expectedJoined.replace(/\s+/g, "");
+  const actualCompact = actualJoined.replace(/\s+/g, "");
+  const actualAcronym = actualTokens.map((token) => token[0] || "").join("");
+  const expectedAcronym = expectedTokens.map((token) => token[0] || "").join("");
+  if (
+    expectedJoined === actualJoined
+    || expectedJoined.includes(actualJoined)
+    || actualJoined.includes(expectedJoined)
+    || expectedCompact === actualCompact
+    || expectedCompact.includes(actualCompact)
+    || actualCompact.includes(expectedCompact)
+    || expectedCompact === actualAcronym
+    || actualCompact === expectedAcronym
+  ) {
+    return true;
+  }
+  const actualSet = new Set(actualTokens);
+  const overlap = expectedTokens.filter((token) => actualSet.has(token)).length;
+  return overlap / Math.min(expectedTokens.length, actualTokens.length) >= 0.5;
+}
+
 function yahooRange(interval) {
   if (interval === "d") return { range: "1mo", interval: "1d" };
   if (interval === "w") return { range: "6mo", interval: "1wk" };
   return { range: "1y", interval: "1mo" };
+}
+
+function calculateRsi(values, period = 14) {
+  const prices = Array.isArray(values) ? values.map(Number).filter((value) => Number.isFinite(value) && value > 0) : [];
+  if (prices.length < period + 1) return null;
+  const changes = prices.slice(1).map((price, index) => price - prices[index]).slice(-period);
+  const gains = changes.map((change) => Math.max(change, 0));
+  const losses = changes.map((change) => Math.max(-change, 0));
+  const averageGain = gains.reduce((sum, gain) => sum + gain, 0) / period;
+  const averageLoss = losses.reduce((sum, loss) => sum + loss, 0) / period;
+  if (averageGain === 0 && averageLoss === 0) return 50;
+  if (averageLoss === 0) return 100;
+  const relativeStrength = averageGain / averageLoss;
+  return 100 - (100 / (1 + relativeStrength));
+}
+
+function verifiedRsiFromHistory(history = [], provider = "") {
+  const closes = Array.isArray(history)
+    ? history.map((row) => Number(row?.close)).filter((value) => Number.isFinite(value) && value > 0)
+    : [];
+  if (closes.length < 15) return null;
+  const rsi = calculateRsi(closes, 14);
+  if (!Number.isFinite(rsi)) return null;
+  const value = Math.round(rsi);
+  return {
+    value,
+    label: value >= 70 ? "Overbought" : value <= 30 ? "Oversold" : "Neutral",
+    status: "Verified",
+    provider: provider || "Live daily history",
+    closesCount: closes.length,
+    verifiedAt: new Date().toISOString()
+  };
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function liquidityLabelForScore(score) {
+  return score >= 75 ? "High" : score >= 55 ? "Medium" : "Lower";
+}
+
+function liquidityNoteForScore(score) {
+  if (score >= 75) return "Usually easier to buy and sell with tighter spreads on major platforms.";
+  if (score >= 55) return "Tradable, but check spreads, order size, settlement timing, and platform availability.";
+  return "Can be harder to trade quickly; use limit orders and check local broker liquidity before buying.";
+}
+
+function averageMetric(values = []) {
+  const numbers = values.map(Number).filter((value) => Number.isFinite(value) && value >= 0);
+  if (!numbers.length) return 0;
+  return numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
+}
+
+function baseLiquidityScoreForMarket(market) {
+  const marketBase = {
+    US: 48,
+    UK: 42,
+    Canada: 39,
+    Europe: 36,
+    Asia: 33,
+    Nigeria: 24,
+    Zimbabwe: 18
+  };
+  return marketBase[market] || 32;
+}
+
+function computeLiquidityPayload(ticker, market, quote = null, historyRows = []) {
+  const rows = Array.isArray(historyRows)
+    ? historyRows.filter((row) => Number.isFinite(Number(row?.close)) && Number(row.close) > 0)
+    : [];
+  const volumeRows = rows.filter((row) => Number.isFinite(Number(row?.volume)) && Number(row.volume) > 0);
+  const avgVolume = averageMetric(volumeRows.map((row) => row.volume));
+  const avgNotional = averageMetric(volumeRows.map((row) => Number(row.volume) * Number(row.close)));
+  const quoteVolume = Number(quote?.volume);
+  const livePrice = Number.isFinite(Number(quote?.price)) && Number(quote.price) > 0 ? Number(quote.price) : 0;
+  const latestNotional = Number.isFinite(quoteVolume) && quoteVolume > 0 && livePrice > 0
+    ? quoteVolume * livePrice
+    : 0;
+  const effectiveVolume = avgVolume > 0 ? avgVolume : (Number.isFinite(quoteVolume) && quoteVolume > 0 ? quoteVolume : 0);
+  const effectiveNotional = avgNotional > 0 ? avgNotional : latestNotional;
+  if (!(effectiveVolume > 0 || effectiveNotional > 0)) return null;
+
+  let score = baseLiquidityScoreForMarket(market);
+  if (effectiveNotional >= 1000000000) score += 38;
+  else if (effectiveNotional >= 250000000) score += 33;
+  else if (effectiveNotional >= 100000000) score += 28;
+  else if (effectiveNotional >= 25000000) score += 21;
+  else if (effectiveNotional >= 5000000) score += 14;
+  else if (effectiveNotional >= 1000000) score += 9;
+  else if (effectiveNotional >= 250000) score += 5;
+  else if (effectiveNotional >= 50000) score += 1;
+  else score -= 6;
+
+  if (effectiveVolume >= 10000000) score += 8;
+  else if (effectiveVolume >= 1000000) score += 5;
+  else if (effectiveVolume >= 250000) score += 2;
+  else if (effectiveVolume < 10000) score -= 4;
+
+  if (volumeRows.length >= 20) score += 4;
+  else if (volumeRows.length >= 5) score += 2;
+  else if (Number.isFinite(quoteVolume) && quoteVolume > 0) score -= 1;
+  else score -= 4;
+
+  const roundedScore = clamp(Math.round(score), 15, 98);
+  return {
+    score: roundedScore,
+    label: liquidityLabelForScore(roundedScore),
+    note: liquidityNoteForScore(roundedScore),
+    source: volumeRows.length >= 5
+      ? "Live trading volume and turnover"
+      : Number.isFinite(quoteVolume) && quoteVolume > 0
+        ? "Current trading volume"
+        : "Market liquidity proxy",
+    avgDailyVolume: Math.round(effectiveVolume),
+    avgDailyValue: Number(effectiveNotional.toFixed(2)),
+    updatedAt: new Date().toISOString(),
+    status: "Live"
+  };
 }
 
 function dividendCurrencyForMarket(market) {
@@ -92,11 +364,13 @@ async function fetchQuote(symbol) {
   const values = parseCsvLine(rows[1]);
   const close = Number(values[6]);
   if (!Number.isFinite(close) || close <= 0) return null;
+  const volume = Number(values[7]);
   return {
     price: close,
     date: values[1],
     time: values[2],
-    provider: "Stooq delayed quote"
+    provider: "Stooq delayed quote",
+    volume: Number.isFinite(volume) && volume > 0 ? volume : 0
   };
 }
 
@@ -107,39 +381,80 @@ async function fetchHistory(symbol, interval = "d") {
   if (!response.ok) return [];
   const rows = (await response.text()).trim().split(/\r?\n/).slice(1);
   return rows.map((line) => {
-    const [date, open, high, low, close] = parseCsvLine(line);
-    return { date, open: Number(open), high: Number(high), low: Number(low), close: Number(close) };
+    const [date, open, high, low, close, volume] = parseCsvLine(line);
+    const parsedVolume = Number(volume);
+    return {
+      date,
+      open: Number(open),
+      high: Number(high),
+      low: Number(low),
+      close: Number(close),
+      volume: Number.isFinite(parsedVolume) && parsedVolume > 0 ? parsedVolume : 0
+    };
   }).filter((row) => Number.isFinite(row.close) && row.close > 0).slice(-120);
 }
 
-async function fetchYahooChart(ticker, market, interval = "d") {
-  const symbol = yahooSymbol(ticker, market);
-  if (!symbol) return null;
+async function fetchYahooChart(ticker, market, interval = "d", companyName = "") {
   const range = yahooRange(interval);
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range.range}&interval=${range.interval}`;
-  const response = await fetch(url, { headers: { "user-agent": "dividend-tracker/1.0" } });
-  if (!response.ok) return null;
-  const data = await response.json();
-  const result = data?.chart?.result?.[0];
-  const price = Number(result?.meta?.regularMarketPrice);
-  if (!Number.isFinite(price) || price <= 0) return null;
-  const timestamps = result.timestamp || [];
-  const closes = result.indicators?.quote?.[0]?.close || [];
-  const history = timestamps.map((timestamp, index) => ({
-    date: new Date(timestamp * 1000).toISOString().slice(0, 10),
-    close: Number(closes[index])
-  })).filter((row) => Number.isFinite(row.close) && row.close > 0).slice(-120);
-  return {
-    price,
-    date: result.meta?.regularMarketTime
-      ? new Date(result.meta.regularMarketTime * 1000).toISOString().slice(0, 10)
-      : "",
-    time: result.meta?.regularMarketTime
-      ? new Date(result.meta.regularMarketTime * 1000).toISOString().slice(11, 16)
-      : "",
-    provider: "Yahoo delayed quote",
-    history
-  };
+  const expectedName = companyName || stockCompanyName(ticker, market);
+  for (const symbol of yahooSymbolCandidates(ticker, market)) {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range.range}&interval=${range.interval}`;
+    const response = await fetch(url, { headers: { "user-agent": "dividend-tracker/1.0" } });
+    if (!response.ok) continue;
+    const data = await response.json();
+    const result = data?.chart?.result?.[0];
+    const sourceName = result?.meta?.longName || result?.meta?.shortName || "";
+    if (!namesLikelyMatch(expectedName, sourceName)) continue;
+    const price = Number(result?.meta?.regularMarketPrice);
+    if (!Number.isFinite(price) || price <= 0) continue;
+    const timestamps = result.timestamp || [];
+    const closes = result.indicators?.quote?.[0]?.close || [];
+    const volumes = result.indicators?.quote?.[0]?.volume || [];
+    const history = timestamps.map((timestamp, index) => ({
+      date: new Date(timestamp * 1000).toISOString().slice(0, 10),
+      close: Number(closes[index]),
+      volume: Number.isFinite(Number(volumes[index])) && Number(volumes[index]) > 0 ? Number(volumes[index]) : 0
+    })).filter((row) => Number.isFinite(row.close) && row.close > 0).slice(-120);
+    const latestVolume = Number(result?.meta?.regularMarketVolume)
+      || [...history].reverse().find((row) => Number.isFinite(Number(row.volume)) && Number(row.volume) > 0)?.volume
+      || 0;
+    return {
+      price,
+      date: result.meta?.regularMarketTime
+        ? new Date(result.meta.regularMarketTime * 1000).toISOString().slice(0, 10)
+        : "",
+      time: result.meta?.regularMarketTime
+        ? new Date(result.meta.regularMarketTime * 1000).toISOString().slice(11, 16)
+        : "",
+      provider: "Yahoo delayed quote",
+      volume: Number.isFinite(Number(latestVolume)) && Number(latestVolume) > 0 ? Number(latestVolume) : 0,
+      history
+    };
+  }
+  return null;
+}
+
+async function fetchYahooDailyHistory(ticker, market, companyName = "") {
+  const expectedName = companyName || stockCompanyName(ticker, market);
+  for (const symbol of yahooSymbolCandidates(ticker, market)) {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=3mo&interval=1d`;
+    const response = await fetch(url, { headers: { "user-agent": "dividend-tracker/1.0" } });
+    if (!response.ok) continue;
+    const data = await response.json();
+    const result = data?.chart?.result?.[0];
+    const sourceName = result?.meta?.longName || result?.meta?.shortName || "";
+    if (!namesLikelyMatch(expectedName, sourceName)) continue;
+    const timestamps = result?.timestamp || [];
+    const closes = result?.indicators?.quote?.[0]?.close || [];
+    const volumes = result?.indicators?.quote?.[0]?.volume || [];
+    const rows = timestamps.map((timestamp, index) => ({
+      date: new Date(timestamp * 1000).toISOString().slice(0, 10),
+      close: Number(closes[index]),
+      volume: Number.isFinite(Number(volumes[index])) && Number(volumes[index]) > 0 ? Number(volumes[index]) : 0
+    })).filter((row) => Number.isFinite(row.close) && row.close > 0).slice(-90);
+    if (rows.length >= 15) return rows;
+  }
+  return [];
 }
 
 function cleanDate(value) {
@@ -264,12 +579,12 @@ async function fetchYahooDividendEvents(ticker, market) {
 
 async function fetchDividendData(ticker, market) {
   if (market === "Nigeria") {
-    const nigeriaPublic = await fetchNigeriaPublicDividendData(ticker, ticker).catch(() => null);
+    const nigeriaPublic = await fetchNigeriaPublicDividendData(ticker, stockCompanyName(ticker, market) || ticker).catch(() => null);
     if (nigeriaPublic?.nextDeclared || nigeriaPublic?.history?.length) return nigeriaPublic;
   }
 
-  const scraped = await fetchPublicDividendPageData(ticker, market, ticker).catch(() => null);
-  if (scraped?.nextDeclared || scraped?.history?.length) return scraped;
+  const scraped = await fetchPublicDividendPageData(ticker, market, stockCompanyName(ticker, market) || ticker).catch(() => null);
+  if (scraped?.nextDeclared || scraped?.history?.length || Number.isFinite(Number(scraped?.payoutRatio))) return scraped;
 
   const symbols = uniqueSymbols(yahooSymbol(ticker, market), ticker);
   const providerFetchers = [
@@ -320,6 +635,9 @@ async function handler(request, response) {
     const symbol = stooqSymbol(ticker, market);
     let quote = null;
     let history = [];
+    let rsi = null;
+    let liquidity = null;
+    let verifiedFallback = null;
     if (!dividendsOnly && symbol) {
       quote = await fetchQuote(symbol).catch(() => null);
       history = await fetchHistory(symbol, interval).catch(() => []);
@@ -328,11 +646,87 @@ async function handler(request, response) {
       quote = await fetchYahooChart(ticker, market, interval).catch(() => null);
       history = quote?.history || history;
     }
+    if (!dividendsOnly) {
+      let dailyHistory = interval === "d"
+        ? history
+        : await fetchYahooDailyHistory(ticker, market).catch(() => []);
+      if (dailyHistory.length < 15) {
+        verifiedFallback = await fetchVerifiedRsiFallbackHistory(ticker, market).catch(() => null);
+        if (verifiedFallback?.history?.length >= 15) {
+          dailyHistory = verifiedFallback.history;
+          if ((!Array.isArray(history) || history.length < 15) && interval === "d") {
+            history = verifiedFallback.history;
+          }
+          if (!quote) {
+            const latest = verifiedFallback.history[verifiedFallback.history.length - 1];
+            if (latest?.date && Number.isFinite(Number(latest.close))) {
+              quote = {
+                price: Number(latest.close),
+                date: latest.date,
+                time: "",
+                provider: verifiedFallback.provider
+              };
+            }
+          }
+        }
+      }
+      if (Number.isFinite(Number(verifiedFallback?.rsiValue)) && dailyHistory.length < 15) {
+        const numericValue = Math.round(Number(verifiedFallback.rsiValue));
+        rsi = {
+          value: numericValue,
+          label: numericValue >= 70 ? "Overbought" : numericValue <= 30 ? "Oversold" : "Neutral",
+          status: "Verified",
+          provider: verifiedFallback.provider || "Verified RSI provider",
+          closesCount: 0,
+          verifiedAt: new Date().toISOString()
+        };
+      } else {
+        const rsiProvider = verifiedFallback?.provider
+          || (dailyHistory === history && history.length ? "Stooq/Yahoo daily history" : "Yahoo daily history");
+        rsi = verifiedRsiFromHistory(dailyHistory, dailyHistory.length ? rsiProvider : "");
+      }
+      liquidity = computeLiquidityPayload(ticker, market, quote, dailyHistory.length ? dailyHistory : history);
+    }
+    const cachedRsi = !dividendsOnly ? verifiedRsiCacheEntry(ticker, market) : null;
+    if (cachedRsi && (!rsi || !Number.isFinite(Number(rsi?.value)))) {
+      rsi = {
+        value: Number(cachedRsi.value),
+        label: cachedRsi.label,
+        status: cachedRsi.status || "Verified",
+        provider: cachedRsi.provider || "Verified cached daily history",
+        closesCount: Number(cachedRsi.closesCount) || Number(cachedRsi.dailyHistory?.length) || 0,
+        verifiedAt: cachedRsi.verifiedAt || new Date().toISOString()
+      };
+    }
+    if (
+      cachedRsi
+      && interval === "d"
+      && (!Array.isArray(history) || history.length < 15)
+      && Array.isArray(cachedRsi.dailyHistory)
+      && Array.isArray(cachedRsi.dailyLabels)
+      && cachedRsi.dailyHistory.length === cachedRsi.dailyLabels.length
+      && cachedRsi.dailyHistory.length >= 15
+    ) {
+      history = cachedRsi.dailyLabels.map((date, index) => ({
+        date,
+        close: Number(cachedRsi.dailyHistory[index])
+      })).filter((row) => Number.isFinite(row.close) && row.close > 0);
+    }
+    if (!dividendsOnly && !quote && Array.isArray(history) && history.length >= 1) {
+      quote = latestPriceFromHistory(history, rsi?.provider || cachedRsi?.provider || "Verified cached daily history");
+    }
+    if (!liquidity) {
+      liquidity = computeLiquidityPayload(ticker, market, quote, history);
+    }
     const dividend = includeDividends ? await fetchDividendData(ticker, market).catch(() => null) : null;
-    if (!quote && !dividend) return;
-    quotes[`${market}:${ticker}`] = dividendsOnly
+    if (!quote && !dividend && !rsi && !liquidity && (!Array.isArray(history) || !history.length)) return;
+    const payload = dividendsOnly
       ? { dividend }
-      : { ...quote, history, dividend };
+      : { ...(quote || {}), history, dividend, rsi, liquidity };
+    if (!payload.provider && rsi?.provider) {
+      payload.provider = rsi.provider;
+    }
+    quotes[`${market}:${ticker}`] = payload;
   }));
 
   response.status(200).json({
@@ -352,6 +746,10 @@ async function handler(request, response) {
 
 module.exports = handler;
 module.exports.fetchDividendData = fetchDividendData;
+module.exports.fetchHistory = fetchHistory;
 module.exports.fetchYahooChart = fetchYahooChart;
+module.exports.fetchYahooDailyHistory = fetchYahooDailyHistory;
+module.exports.verifiedRsiFromHistory = verifiedRsiFromHistory;
 module.exports.yahooSymbol = yahooSymbol;
 module.exports.dividendCurrencyForMarket = dividendCurrencyForMarket;
+module.exports.namesLikelyMatch = namesLikelyMatch;

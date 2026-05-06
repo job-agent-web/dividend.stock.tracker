@@ -4,14 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=1280, initial-scale=1">
     <title>Dividend Stock Tracker</title>
-    <link rel="stylesheet" href="styles.css?v=installed-mobile-short-stock-list">
+    <link rel="stylesheet" href="styles.css?v=daily-stock-delivery">
   </head>
   <body>
     <header class="topbar">
-      <div>
+      <div class="topbar-brand">
         <p class="eyebrow" id="headerGreeting">Welcome</p>
         <h1>Dividend Stock Tracker</h1>
       </div>
+      <section class="stock-of-day-card topbar-stock-of-day" id="stockOfDayCard" hidden aria-label="Stock of the day"></section>
       <div class="topbar-actions">
         <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false">
           <span class="theme-icon" aria-hidden="true">☾</span>
@@ -115,8 +116,8 @@
       </div>
     </header>
 
-    <main id="appMain">
-      <section class="controls" aria-label="Filters">
+      <main id="appMain">
+        <section class="controls" aria-label="Filters">
         <details class="country-dropdown market-dropdown" id="marketDropdown">
           <summary>
             <span>Market</span>
@@ -143,7 +144,7 @@
           Search
           <input id="searchInput" type="search" placeholder="Ticker, company, platform">
         </label>
-        <button id="refreshPrices" class="refresh-button" type="button">Refresh live prices</button>
+        <button id="refreshPrices" class="refresh-button" type="button" hidden>Refresh live prices</button>
       </section>
 
       <section class="layout">
@@ -368,12 +369,14 @@
       </div>
     </div>
 
+    <script src="market-classifier.js?v=market-classifier-v2"></script>
     <script src="online-dividend-universe.js?v=private-admin"></script>
     <script src="nigeria-dividends.js?v=private-admin"></script>
     <script src="nigeria-dividends-scraped.js?v=private-admin"></script>
     <script src="market-dividends.js?v=private-admin"></script>
     <script src="market-dividends-scraped.js?v=private-admin"></script>
-    <script src="pwa-updates.js?v=installed-redeploy-only"></script>
-    <script src="app.js?v=installed-mobile-short-stock-list"></script>
+<script src="verified-rsi-cache.js?v=verified-rsi-cache-v1"></script>
+<script src="pwa-updates.js?v=installed-redeploy-only"></script>
+<script src="app.js?v=verified-rsi-live"></script>
   </body>
 </html>

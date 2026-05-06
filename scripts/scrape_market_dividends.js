@@ -3,6 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const { fetchPublicDividendPageData, publicDividendSourceUrl } = require("../lib/stockanalysis-dividends");
+const { inferPlatformMarket } = require("../market-classifier");
 
 const ROOT = path.join(__dirname, "..");
 const APP_JS = path.join(ROOT, "app.js");
@@ -20,18 +21,6 @@ function evaluateWindowArray(filename, variableName) {
   } catch {
     return [];
   }
-}
-
-function inferPlatformMarket(ticker, company) {
-  const symbol = String(ticker || "").toUpperCase();
-  const name = String(company || "").toLowerCase();
-  const canada = new Set(["RY", "TD", "BNS", "BMO", "CM", "ENB", "CNQ", "TRP", "BCE", "TU", "MFC", "SLF", "FTS", "CNI", "CP", "SHOP", "WCN", "GIB", "NTR"]);
-  const europe = new Set(["NVS", "SAP", "SAN", "UBS", "TTE", "UL", "SHEL", "RIO", "BHP", "AZN", "GSK", "NVO", "ASML", "LIN", "BP", "HSBC", "BTI", "DEO"]);
-  const asia = new Set(["TM", "MUFG", "HDB", "TSM", "NTES", "SONY", "NIO", "BABA", "JD", "CHT", "KB", "SMFG", "TAK", "INFY"]);
-  if (canada.has(symbol) || name.includes("canadian") || name.includes("toronto-dominion") || name.includes("royal bank of canada")) return "Canada";
-  if (europe.has(symbol) || name.includes("plc") || name.includes("s.a.") || name.includes("ag") || name.includes("se")) return "Europe";
-  if (asia.has(symbol) || name.includes("toyota") || name.includes("taiwan") || name.includes("mitsubishi") || name.includes("hdfc")) return "Asia";
-  return "US";
 }
 
 function loadUniverse() {
@@ -58,7 +47,7 @@ function loadUniverse() {
   for (const row of onlineRows) {
     const ticker = String(row.symbol || "").trim().toUpperCase();
     if (!ticker) continue;
-    const market = inferPlatformMarket(ticker, row.company);
+    const market = inferPlatformMarket(ticker, row.company, row);
     if (market === "Nigeria") continue;
     rows.set(`${market}:${ticker}`, { market, ticker, company: row.company || ticker });
   }
