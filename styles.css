@@ -4702,6 +4702,18 @@ body[data-theme="dark"] .dividend-date-alert.urgent strong {
   }
 }
 
+@media (max-width: 760px) and (pointer: coarse) {
+  body[data-installed-mobile="false"] .stock-list,
+  body:not([data-installed-mobile]) .stock-list {
+    max-height: 42vh;
+  }
+
+  body[data-installed-mobile="false"][data-lite-mode="on"] .stock-list,
+  body:not([data-installed-mobile])[data-lite-mode="on"] .stock-list {
+    max-height: 38vh;
+  }
+}
+
 @media (min-width: 560px) {
   .dividend-auth-card .register-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
