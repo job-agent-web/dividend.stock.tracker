@@ -1610,6 +1610,7 @@ let hostedDividendSnapshotVersions = {
 let hostedStaticDividendRefreshInFlight = false;
 let hostedDividendSweepInFlight = false;
 let hostedDividendSweepCursor = 0;
+let hostedLiveRefreshCursor = 0;
 let liveRefreshInFlight = false;
 let immediateHostedRefreshTimer = 0;
 let lastImmediateHostedRefreshAt = 0;
@@ -2636,6 +2637,69 @@ async function fetchHostedMarketData(visibleStocks, interval = historyIntervalFo
   return Object.keys(quotes).length ? { quotes, provider, updatedAt } : null;
 }
 
+async function fetchHostedMarketDataBatch(batchStocks, interval = historyIntervalForRange(), options = {}) {
+  if (window.location.protocol === "file:" || !Array.isArray(batchStocks) || !batchStocks.length) return null;
+  const symbols = batchStocks
+    .map((stock) => `${stock.ticker}:${stock.market}`)
+    .join(",");
+  const dividendFlag = options.dividends ? "&dividends=1" : "";
+  const dividendOnlyFlag = options.dividendsOnly ? "&dividendsOnly=1" : "";
+  const url = `/api/market-data?interval=${encodeURIComponent(interval)}&symbols=${encodeURIComponent(symbols)}${dividendFlag}${dividendOnlyFlag}`;
+  const response = await fetch(url, { cache: "no-store" }).catch(() => null);
+  if (!response?.ok) return null;
+  const data = await response.json().catch(() => null);
+  if (!data?.quotes) return null;
+  return {
+    quotes: data.quotes,
+    provider: data.provider || "",
+    updatedAt: data.updatedAt || ""
+  };
+}
+
+function prioritizeStocksForHostedRefresh(marketUniverse, manual = false) {
+  if (!Array.isArray(marketUniverse) || !marketUniverse.length) return [];
+  if (manual || window.location.protocol === "file:") return marketUniverse;
+
+  const visibleNow = filteredStocks().slice(0, 48);
+  const selected = stocks.find((stock) => stock.ticker === selectedTicker && stock.market === selectedStock?.market)
+    || stocks.find((stock) => stock.ticker === selectedTicker)
+    || selectedStock;
+  const rotationSize = Math.min(240, marketUniverse.length);
+  const start = hostedLiveRefreshCursor % marketUniverse.length;
+  const rotating = [];
+  for (let index = 0; index < rotationSize; index += 1) {
+    rotating.push(marketUniverse[(start + index) % marketUniverse.length]);
+  }
+  hostedLiveRefreshCursor = (start + rotationSize) % marketUniverse.length;
+
+  return [...new Map(
+    [selected, ...visibleNow, ...rotating]
+      .filter(Boolean)
+      .map((stock) => [`${stock.market}:${stock.ticker}`, stock])
+  ).values()];
+}
+
+function applyHostedQuoteBatch(batchStocks, batchQuotes) {
+  if (!batchQuotes || !Array.isArray(batchStocks) || !batchStocks.length) {
+    return { updated: 0, chartUpdates: 0, dividendUpdates: 0 };
+  }
+  let updated = 0;
+  let chartUpdates = 0;
+  let dividendUpdates = 0;
+  batchStocks.forEach((stock) => {
+    const quote = batchQuotes[`${stock.market}:${stock.ticker}`];
+    if (!quote) return;
+    applyQuoteToStock(stock, quote);
+    if (quote.dividend) dividendUpdates += 1;
+    if (Array.isArray(quote.history) && quote.history.length >= 3) {
+      applyHistoryToStock(stock, quote.history, chartRange);
+      chartUpdates += 1;
+    }
+    updated += 1;
+  });
+  return { updated, chartUpdates, dividendUpdates };
+}
+
 function applyQuoteToStock(stock, quote) {
   const livePrice = Number(quote?.price);
   if (Number.isFinite(livePrice) && livePrice > 0) {
@@ -3201,27 +3265,31 @@ async function refreshLivePrices(manual = false) {
     let dividendUpdates = 0;
     const marketUniverse = stocksForSelectedMarkets();
     const autoLimit = window.location.protocol === "file:" ? 120 : marketUniverse.length;
-    const visibleStocks = manual ? marketUniverse : marketUniverse.slice(0, autoLimit);
+    const visibleStocks = manual
+      ? marketUniverse
+      : prioritizeStocksForHostedRefresh(marketUniverse.slice(0, autoLimit), false);
     const includeDividendData = manual;
 
-    const hostedData = await fetchHostedMarketData(visibleStocks, historyIntervalForRange(), {
-      dividends: includeDividendData
-    }).catch(() => null);
-    if (hostedData?.quotes) {
-      visibleStocks.forEach((stock) => {
-        const quote = hostedData.quotes[`${stock.market}:${stock.ticker}`];
-        if (!quote) return;
-        applyQuoteToStock(stock, quote);
-        if (quote.dividend) dividendUpdates += 1;
-        if (Array.isArray(quote.history) && quote.history.length >= 3) {
-          applyHistoryToStock(stock, quote.history, chartRange);
-          chartUpdates += 1;
+    let hostedDataFound = false;
+    if (window.location.protocol !== "file:") {
+      for (const batch of chunkItems(visibleStocks, 60)) {
+        const hostedBatch = await fetchHostedMarketDataBatch(batch, historyIntervalForRange(), {
+          dividends: includeDividendData
+        }).catch(() => null);
+        if (!hostedBatch?.quotes) continue;
+        hostedDataFound = true;
+        const batchResult = applyHostedQuoteBatch(batch, hostedBatch.quotes);
+        updated += batchResult.updated;
+        chartUpdates += batchResult.chartUpdates;
+        dividendUpdates += batchResult.dividendUpdates;
+        if (batchResult.updated > 0) {
+          renderDetail(activeDetailStock());
+          renderList();
         }
-        updated += 1;
-      });
+      }
     }
 
-    if (!hostedData) {
+    if (!hostedDataFound) {
       const quoteMap = await fetchStooqQuotesBatch(visibleStocks).catch(() => new Map());
       const updatedKeys = new Set();
       visibleStocks.forEach((stock) => {
