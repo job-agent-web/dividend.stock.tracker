@@ -95,6 +95,11 @@ function adminApiFailureMessage(response, data, fallback) {
 }
 
 async function checkAdminSession() {
+  if (!usesHostedSharedAccounts) {
+    if (adminGateMessage) adminGateMessage.textContent = "";
+    showAdminDashboard();
+    return true;
+  }
   try {
     const response = await fetch("/api/admin?action=session", {
       method: "GET",
@@ -126,6 +131,11 @@ async function checkAdminSession() {
 }
 
 async function loginAdminWithPin() {
+  if (!usesHostedSharedAccounts) {
+    if (adminGateMessage) adminGateMessage.textContent = "";
+    showAdminDashboard();
+    return;
+  }
   const pin = adminPin?.value || "";
   if (adminGateMessage) adminGateMessage.textContent = "Checking secure admin access...";
   try {
@@ -150,6 +160,10 @@ async function loginAdminWithPin() {
 }
 
 async function logoutAdmin() {
+  if (!usesHostedSharedAccounts) {
+    lockAdminDashboard();
+    return;
+  }
   try {
     await fetch("/api/admin?action=logout", {
       method: "POST",
