@@ -644,12 +644,12 @@ function dividendFrequency(stock) {
 }
 
 function liquidityLabelForScore(score) {
-  return score >= 75 ? "High" : score >= 55 ? "Medium" : "Lower";
+  return score >= 61 ? "High" : score >= 31 ? "Moderate" : "Low";
 }
 
 function liquidityNoteForScore(score) {
-  if (score >= 75) return "Usually easier to buy and sell with tighter spreads on major platforms.";
-  if (score >= 55) return "Tradable, but check spreads, order size, settlement timing, and platform availability.";
+  if (score >= 61) return "Usually easier to buy and sell with tighter spreads on major platforms.";
+  if (score >= 31) return "Tradable, but check spreads, order size, settlement timing, and platform availability.";
   return "Can be harder to trade quickly; use limit orders and check local broker liquidity before buying.";
 }
 
@@ -749,7 +749,130 @@ function applyLiquidityPayloadToStock(stock, payload) {
     updatedAt: payload.updatedAt || new Date().toISOString(),
     status: payload.status || "Live"
   };
+  if (stock.liquidityData.avgDailyValue > 0 || stock.liquidityData.avgDailyVolume > 0) {
+    applyTradingVolumePayloadToStock(stock, {
+      value: stock.liquidityData.avgDailyValue,
+      shares: stock.liquidityData.avgDailyVolume,
+      source: stock.liquidityData.source || payload.source || payload.provider || "Live trading volume",
+      updatedAt: stock.liquidityData.updatedAt || new Date().toISOString(),
+      status: stock.liquidityData.status || "Verified"
+    });
+  }
   return true;
+}
+
+function tradingVolumePayloadFromMarketData(stock, quote = null, historyRows = []) {
+  if (!stock) return null;
+  const rows = Array.isArray(historyRows)
+    ? historyRows.filter((row) => Number.isFinite(Number(row?.volume)) && Number(row.volume) > 0)
+    : [];
+  const latestHistoryRow = rows.length ? rows[rows.length - 1] : null;
+  const latestHistoryClose = Number(latestHistoryRow?.close);
+  const quoteVolume = Number(quote?.volume);
+  const historyVolume = Number(latestHistoryRow?.volume);
+  const quotePrice = Number(quote?.price);
+  const livePrice = Number.isFinite(quotePrice) && quotePrice > 0
+    ? quotePrice
+    : Number.isFinite(Number(stock?.price)) && Number(stock.price) > 0
+      ? Number(stock.price)
+      : Number.isFinite(latestHistoryClose) && latestHistoryClose > 0
+        ? latestHistoryClose
+        : 0;
+  const historyNotional = Number.isFinite(historyVolume) && historyVolume > 0 && Number.isFinite(latestHistoryClose) && latestHistoryClose > 0
+    ? historyVolume * latestHistoryClose
+    : 0;
+  const quoteNotional = Number.isFinite(quoteVolume) && quoteVolume > 0 && Number.isFinite(livePrice) && livePrice > 0
+    ? quoteVolume * livePrice
+    : 0;
+  const liquidityVolume = Number(
+    quote?.liquidity?.avgDailyVolume
+    || quote?.avgDailyVolume
+    || stock?.liquidityData?.avgDailyVolume
+  );
+  const liquidityValue = Number(
+    quote?.liquidity?.avgDailyValue
+    || quote?.avgDailyValue
+    || stock?.liquidityData?.avgDailyValue
+  );
+  const derivedLiquidityValue = Number.isFinite(liquidityValue) && liquidityValue > 0
+    ? liquidityValue
+    : Number.isFinite(liquidityVolume) && liquidityVolume > 0 && Number.isFinite(livePrice) && livePrice > 0
+      ? liquidityVolume * livePrice
+      : 0;
+  const quoteProvider = String(quote?.provider || "").trim();
+  const historyProvider = String(stock?.dailyHistoryProvider || "").trim();
+  const liquidityProvider = String(quote?.liquidity?.source || stock?.liquidityData?.source || "").trim();
+
+  if (
+    Number.isFinite(historyNotional)
+    && historyNotional > 0
+    && (!Number.isFinite(quoteNotional) || quoteNotional <= 0 || historyVolume >= quoteVolume * 3)
+  ) {
+    return {
+      value: Number(historyNotional.toFixed(2)),
+      shares: Math.round(historyVolume),
+      source: historyProvider || quoteProvider || "Verified daily history",
+      updatedAt: String(latestHistoryRow?.date || new Date().toISOString()),
+      status: "Verified"
+    };
+  }
+
+  if (Number.isFinite(quoteNotional) && quoteNotional > 0) {
+    return {
+      value: Number(quoteNotional.toFixed(2)),
+      shares: Math.round(quoteVolume),
+      source: quoteProvider || historyProvider || "Verified market data",
+      updatedAt: String(quote?.time || quote?.date || new Date().toISOString()),
+      status: "Verified"
+    };
+  }
+
+  if (latestHistoryRow && Number.isFinite(historyNotional) && historyNotional > 0) {
+    return {
+      value: Number(historyNotional.toFixed(2)),
+      shares: Math.round(historyVolume),
+      source: historyProvider || quoteProvider || "Verified market data",
+      updatedAt: String(latestHistoryRow.date || new Date().toISOString()),
+      status: "Verified"
+    };
+  }
+
+  if (Number.isFinite(derivedLiquidityValue) && derivedLiquidityValue > 0) {
+    return {
+      value: Number(derivedLiquidityValue.toFixed(2)),
+      shares: Number.isFinite(liquidityVolume) && liquidityVolume > 0 ? Math.round(liquidityVolume) : 0,
+      source: liquidityProvider || quoteProvider || historyProvider || "Verified trading-volume source",
+      updatedAt: String(quote?.liquidity?.updatedAt || stock?.liquidityData?.updatedAt || quote?.time || quote?.date || new Date().toISOString()),
+      status: String(quote?.liquidity?.status || stock?.liquidityData?.status || "Verified")
+    };
+  }
+
+  return null;
+}
+
+function applyTradingVolumePayloadToStock(stock, payload) {
+  const numericValue = Number(payload?.value ?? payload?.notionalValue);
+  const numericShares = Number(payload?.shares ?? payload?.shareVolume);
+  const derivedValue = Number.isFinite(numericValue) && numericValue > 0
+    ? numericValue
+    : Number.isFinite(numericShares) && numericShares > 0 && Number.isFinite(Number(stock?.price)) && Number(stock.price) > 0
+      ? numericShares * Number(stock.price)
+      : 0;
+  if (!stock || !Number.isFinite(derivedValue) || derivedValue <= 0) return false;
+  stock.volume24hData = {
+    value: Number(derivedValue.toFixed(2)),
+    shares: Number.isFinite(numericShares) && numericShares > 0 ? Math.round(numericShares) : 0,
+    source: String(payload.source || payload.provider || "Verified market data"),
+    updatedAt: String(payload.updatedAt || new Date().toISOString()),
+    status: String(payload.status || "Verified")
+  };
+  return true;
+}
+
+function updateTradingVolumeFromMarketData(stock, quote = null, historyRows = []) {
+  const payload = tradingVolumePayloadFromMarketData(stock, quote, historyRows);
+  if (!payload) return false;
+  return applyTradingVolumePayloadToStock(stock, payload);
 }
 
 function updateLiquiditySnapshotFromMarketData(stock, quote = null, historyRows = []) {
@@ -786,14 +909,225 @@ function liquidityProfile(stock) {
   };
 }
 
+function tradingVolumeProfile(stock) {
+  const directValue = Number(stock?.volume24hData?.value);
+  if (Number.isFinite(directValue) && directValue > 0) {
+    return {
+      value: directValue,
+      shares: Number(stock?.volume24hData?.shares) || 0,
+      source: stock.volume24hData.source || "Verified market data",
+      updatedAt: stock.volume24hData.updatedAt || "",
+      status: stock.volume24hData.status || "Verified"
+    };
+  }
+
+  const liquidityValue = Number(stock?.liquidityData?.avgDailyValue);
+  const liquidityVolume = Number(stock?.liquidityData?.avgDailyVolume);
+  const derivedLiquidityValue = Number.isFinite(liquidityValue) && liquidityValue > 0
+    ? liquidityValue
+    : Number.isFinite(liquidityVolume) && liquidityVolume > 0 && Number.isFinite(Number(stock?.price)) && Number(stock.price) > 0
+      ? liquidityVolume * Number(stock.price)
+      : 0;
+  if (Number.isFinite(derivedLiquidityValue) && derivedLiquidityValue > 0) {
+    return {
+      value: derivedLiquidityValue,
+      shares: Number.isFinite(liquidityVolume) && liquidityVolume > 0 ? Math.round(liquidityVolume) : 0,
+      source: stock?.liquidityData?.source || "Verified trading volume",
+      updatedAt: stock?.liquidityData?.updatedAt || "",
+      status: stock?.liquidityData?.status || "Verified"
+    };
+  }
+
+  const dailyVolumes = Array.isArray(stock?.historyVolumeByRange?.daily)
+    ? stock.historyVolumeByRange.daily.map(Number).filter((value) => Number.isFinite(value) && value > 0)
+    : [];
+  const dailyCloses = Array.isArray(stock?.historyByRange?.daily)
+    ? stock.historyByRange.daily.map(Number).filter((value) => Number.isFinite(value) && value > 0)
+    : [];
+  if (dailyVolumes.length) {
+    const dailyLabels = Array.isArray(stock?.historyLabelsByRange?.daily) ? stock.historyLabelsByRange.daily : [];
+    const latestVolume = dailyVolumes[dailyVolumes.length - 1];
+    const latestClose = dailyCloses[dailyCloses.length - 1];
+    const latestValue = Number.isFinite(latestVolume) && latestVolume > 0
+      ? (Number.isFinite(latestClose) && latestClose > 0 ? latestVolume * latestClose : latestVolume * Number(stock?.price || 0))
+      : 0;
+    if (Number.isFinite(latestValue) && latestValue > 0) {
+      return {
+        value: Number(latestValue.toFixed(2)),
+        shares: Math.round(latestVolume),
+        source: stock?.dailyHistoryProvider || stock?.liveStatus || "Verified daily history",
+        updatedAt: String(dailyLabels[dailyLabels.length - 1] || ""),
+        status: "Verified"
+      };
+    }
+  }
+
+  const estimatedValue = estimateTradingVolumeValue(stock);
+  if (Number.isFinite(estimatedValue) && estimatedValue > 0) {
+    return {
+      value: Number(estimatedValue.toFixed(2)),
+      source: "Estimated from market cap and liquidity profile",
+      updatedAt: "",
+      status: "Estimated"
+    };
+  }
+
+  return null;
+}
+
+function estimateTradingVolumeValue(stock) {
+  const livePrice = Number(stock?.price);
+  const marketCap = Number(stock?.marketCap);
+  const liquidityScore = Number(liquidityProfile(stock)?.score) || baseLiquidityScoreForMarket(stock?.market);
+  const marketTurnoverRate = {
+    US: 0.0035,
+    UK: 0.0021,
+    Canada: 0.002,
+    Europe: 0.0018,
+    Asia: 0.0018,
+    Nigeria: 0.0011,
+    Zimbabwe: 0.0006
+  };
+  const scoreMultiplier = clamp(liquidityScore / 55, 0.45, 1.85);
+  if (Number.isFinite(marketCap) && marketCap > 0) {
+    const turnoverRate = marketTurnoverRate[stock?.market] || 0.0016;
+    const estimatedDailyValue = marketCap * turnoverRate * scoreMultiplier;
+    if (estimatedDailyValue > 0) {
+      return estimatedDailyValue;
+    }
+  }
+
+  const baselineByMarket = {
+    US: 650000,
+    UK: 340000,
+    Canada: 260000,
+    Europe: 190000,
+    Asia: 175000,
+    Nigeria: 95000,
+    Zimbabwe: 25000
+  };
+  if (!Number.isFinite(livePrice) || livePrice <= 0) return 0;
+  return (baselineByMarket[stock?.market] || 120000) * scoreMultiplier * livePrice;
+}
+
+function formatTradingVolumeValue(stock, value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return "Not available";
+  const marketCurrency = {
+    Nigeria: "NGN",
+    UK: "GBP",
+    US: "USD",
+    Canada: "CAD",
+    Europe: "EUR",
+    Asia: "USD",
+    Zimbabwe: "ZWL"
+  };
+  const currency = stock?.currency || marketCurrency[stock?.market] || "USD";
+  const symbol = currencySymbolFor(currency);
+  if (numeric >= 1_000_000_000_000) return `${symbol} ${(numeric / 1_000_000_000_000).toFixed(numeric >= 10_000_000_000_000 ? 0 : 2)}T`;
+  if (numeric >= 1_000_000_000) return `${symbol} ${(numeric / 1_000_000_000).toFixed(numeric >= 10_000_000_000 ? 0 : 2)}B`;
+  if (numeric >= 1_000_000) return `${symbol} ${(numeric / 1_000_000).toFixed(numeric >= 10_000_000 ? 0 : 2)}M`;
+  if (numeric >= 1_000) return `${symbol} ${(numeric / 1_000).toFixed(numeric >= 10_000 ? 0 : 2)}K`;
+  return `${symbol} ${numeric.toLocaleString(undefined, { maximumFractionDigits: numeric >= 100 ? 0 : 2 })}`;
+}
+
+function tradingVolumeCardValue(stock) {
+  const profile = tradingVolumeProfile(stock);
+  if (!profile) return "Not available";
+  const formatted = formatTradingVolumeValue(stock, profile.value);
+  return profile.status === "Estimated" ? `${formatted} (Est.)` : formatted;
+}
+
+function marketTurnoverBaseline(market) {
+  const baselines = {
+    US: 2_500_000,
+    UK: 1_000_000,
+    Canada: 850_000,
+    Europe: 1_100_000,
+    Asia: 900_000,
+    Nigeria: 180_000,
+    Zimbabwe: 40_000
+  };
+  return baselines[market] || 750_000;
+}
+
 function platformLiquidityScore(stock, platformName) {
   const profile = liquidityProfile(stock);
-  let score = profile.score;
+  const turnover = tradingVolumeProfile(stock);
+  const marketCap = Number(stock?.marketCap);
+  const livePrice = Number(stock?.price);
+  const turnoverValue = Number(turnover?.value);
+  const turnoverShares = Number(turnover?.shares);
+  const turnoverRatio = Number.isFinite(marketCap) && marketCap > 0 && Number.isFinite(turnoverValue) && turnoverValue > 0
+    ? turnoverValue / marketCap
+    : 0;
+  const turnoverBaseline = marketTurnoverBaseline(stock?.market);
+  const turnoverMultiple = Number.isFinite(turnoverValue) && turnoverValue > 0
+    ? turnoverValue / turnoverBaseline
+    : 0;
+  let score = 18 + (profile.score * 0.52);
+
+  if (turnoverMultiple >= 100) score += 18;
+  else if (turnoverMultiple >= 30) score += 15;
+  else if (turnoverMultiple >= 10) score += 12;
+  else if (turnoverMultiple >= 3) score += 9;
+  else if (turnoverMultiple >= 1) score += 6;
+  else if (turnoverMultiple >= 0.35) score += 3;
+  else if (turnoverMultiple > 0) score += 1;
+
+  if (turnoverRatio >= 0.03) score += 9;
+  else if (turnoverRatio >= 0.015) score += 7;
+  else if (turnoverRatio >= 0.0075) score += 5;
+  else if (turnoverRatio >= 0.003) score += 3;
+  else if (turnoverRatio > 0 && turnoverRatio < 0.0006) score -= 3;
+
+  if (Number.isFinite(turnoverShares) && turnoverShares > 0) {
+    if (turnoverShares >= 10_000_000) score += 4;
+    else if (turnoverShares >= 1_000_000) score += 3;
+    else if (turnoverShares >= 150_000) score += 1;
+    else if (turnoverShares < 10_000) score -= 2;
+  }
+
+  if (Number.isFinite(marketCap) && marketCap > 0) {
+    if (marketCap >= 100_000_000_000) score += 5;
+    else if (marketCap >= 10_000_000_000) score += 3;
+    else if (marketCap >= 1_000_000_000) score += 1;
+    else if (marketCap < 250_000_000) score -= 3;
+  }
+
+  if (Number.isFinite(livePrice) && livePrice > 0) {
+    if (livePrice < 1) score -= 5;
+    else if (livePrice < 5) score -= 2;
+  }
+
+  if (turnover?.status === "Estimated") score -= 6;
+  else if (turnover?.status === "Verified") score += 2;
+
   const name = platformName.toLowerCase();
-  if (name.includes("trading 212") || name.includes("revolut") || name.includes("interactive brokers")) score += 4;
-  if (name.includes("bamboo") && (stock.market === "US" || stock.market === "Nigeria")) score += 3;
-  if (name.includes("investnaija") && stock.market === "Nigeria") score += 3;
-  if (name.includes("local") || name.includes("specialist") || name.includes("frontier")) score -= 8;
+  if (name.includes("interactive brokers")) score += 6;
+  else if (name.includes("trading 212")) score += 5;
+  else if (name.includes("revolut")) score += 4;
+  else if (name.includes("freetrade")) score += stock.market === "UK" ? 3 : 1;
+  else if (name.includes("hargreaves")) score += stock.market === "UK" ? 2 : 0;
+
+  if (name.includes("bamboo")) {
+    score += (stock.market === "US" || stock.market === "Nigeria") ? 4 : -3;
+  }
+  if (name.includes("investnaija")) {
+    score += stock.market === "Nigeria" ? 5 : -5;
+  }
+  if (name.includes("chaka")) {
+    score += (stock.market === "US" || stock.market === "Nigeria") ? 3 : -2;
+  }
+  if (name.includes("trove")) {
+    score += (stock.market === "US" || stock.market === "Nigeria") ? 2 : -2;
+  }
+  if (name.includes("local zse")) score += stock.market === "Zimbabwe" ? 2 : -4;
+  if (name.includes("vfex") || name.includes("zse platform")) score += stock.market === "Zimbabwe" ? 1 : -3;
+  if (name.includes("specialist frontier")) score -= 10;
+  else if (name.includes("frontier")) score -= 7;
+  if (name.includes("local") && !name.includes("local zse")) score -= 4;
+
   score = clamp(Math.round(score), 15, 98);
   const label = liquidityLabelForScore(score);
   return `Liquidity score: ${score}/100 (${label})`;
@@ -835,12 +1169,23 @@ function platformChoices(market) {
   ];
 }
 
+function currencyCodeForMarket(market) {
+  if (market === "Nigeria") return "NGN";
+  if (market === "UK") return "GBP";
+  if (market === "Canada") return "CAD";
+  if (market === "Europe") return "EUR";
+  if (market === "Asia") return "JPY";
+  if (market === "Zimbabwe") return "USD";
+  return "USD";
+}
+
 function inferPlatformMarket(ticker, company, row = {}) {
   if (window.marketClassifier?.inferPlatformMarket) {
     return window.marketClassifier.inferPlatformMarket(ticker, company, row);
   }
   const symbol = String(ticker || row.symbol || "").trim().toUpperCase();
   const name = String(company || row.company || "");
+  if (["Canada", "UK", "Asia", "Nigeria", "Zimbabwe", "Europe", "US"].includes(row.market)) return row.market;
   const canada = new Set(["RY", "TD", "BNS", "BMO", "CM", "ENB", "CNQ", "TRP", "BCE", "TU", "MFC", "SLF", "FTS", "CNI", "CP", "SHOP", "WCN", "GIB", "NTR", "AEM", "WFG", "BGSI"]);
   const uk = new Set(["AZN", "GSK", "BP", "HSBC", "BTI", "DEO", "RIO", "SHEL", "BHP", "UL", "AMCR"]);
   const europe = new Set(["NVS", "SAP", "SAN", "UBS", "TTE", "NVO", "ASML", "LIN", "FER"]);
@@ -849,7 +1194,6 @@ function inferPlatformMarket(ticker, company, row = {}) {
   if (asia.has(symbol) || /\b(taiwan semiconductor|toyota|mitsubishi|sumitomo|hdfc|alibaba|jd\.?com|takeda|sony|taiwan)\b/i.test(name)) return "Asia";
   if (uk.has(symbol) || /\bp\.?\s*l\.?\s*c\.?\b/i.test(name) || /\b(unilever|astrazeneca|british american tobacco|shell|bp|hsbc|diageo|gsk)\b/i.test(name)) return "UK";
   if (europe.has(symbol) || /\b(s\.?\s*e\.?|a\.?\s*g\.?|n\.?\s*v\.?|s\.?\s*a\.?|a\/s)\b/i.test(name)) return "Europe";
-  if (["Canada", "UK", "Asia", "Nigeria", "Zimbabwe"].includes(row.market)) return row.market;
   return "US";
 }
 
@@ -938,7 +1282,7 @@ function buyScoreFromMetrics({
   const valuationScore = valuationScoreFromLabel(
     valuation || inferValuationLabelFromMetrics({ dividendYield, payoutRatio, safety, growthYears, marketCap })
   );
-  return Math.round((growthScore * 0.22) + (payoutHealth * 0.28) + (safeScore * 0.26) + (yieldScore * 0.12) + (valuationScore * 0.12));
+  return Math.round((growthScore * 0.2) + (payoutHealth * 0.26) + (safeScore * 0.3) + (yieldScore * 0.12) + (valuationScore * 0.12));
 }
 
 function scoreSignal(score, payoutRatio) {
@@ -1098,10 +1442,25 @@ function applyOnlineUniverseMetricsToStock(stock, row = {}) {
   const marketCap = Number(row.marketCap);
   const payoutSource = String(row.payoutSource || row.dividendSource || "").trim();
   const payoutVerifiedAt = String(row.payoutVerifiedAt || row.dividendVerifiedAt || "").trim();
+  const seedPrice = Number(row.price);
+  const seedHistory = Array.isArray(row.history)
+    ? row.history.map(Number).filter((value) => Number.isFinite(value) && value > 0)
+    : [];
+  const verifiedDividendHistory = Array.isArray(row.verifiedDividendHistory)
+    ? row.verifiedDividendHistory
+      .filter((entry) => entry && (entry.payDate || entry.recordDate || entry.exDate || Number(entry.amount) > 0))
+      .map((entry) => ({
+        ...entry,
+        amount: Number(entry.amount || 0),
+        currency: entry.currency || row.dividendCurrency || stock.dividendCurrency || stock.currency
+      }))
+    : [];
 
   if (row.sector) stock.category = row.sector;
+  if (Number.isFinite(seedPrice) && seedPrice > 0) stock.price = Number(seedPrice.toFixed(2));
   if (Number.isFinite(annualDividend) && annualDividend > 0) stock.annualDividend = annualDividend;
   if (Number.isFinite(marketCap) && marketCap > 0) stock.marketCap = marketCap;
+  if (seedHistory.length >= 3) stock.history = seedHistory;
   if (Number.isFinite(payoutRatio) && payoutRatio > 0) {
     stock.payoutRatio = Number(payoutRatio.toFixed(2));
     stock.payoutSource = payoutSource || stock.payoutSource || "Online dividend universe";
@@ -1111,9 +1470,21 @@ function applyOnlineUniverseMetricsToStock(stock, row = {}) {
   if (Number.isFinite(growthYears) && growthYears >= 0) stock.divGrowth = growthYears;
   if (row.valuation) stock.valuation = normalizeValuationLabel(row.valuation) || stock.valuation;
   if (row.dividendCurrency) stock.dividendCurrency = row.dividendCurrency;
+  if (row.currency) stock.currency = row.currency;
   if (row.dividendSourceUrl) stock.dividendSourceUrl = row.dividendSourceUrl;
   if (row.dividendSource) stock.dividendSource = row.dividendSource;
   if (row.dividendVerifiedAt) stock.dividendVerifiedAt = row.dividendVerifiedAt;
+  if (Number.isFinite(Number(row.lastDividendAmount)) && Number(row.lastDividendAmount) > 0) stock.lastDividendAmount = Number(row.lastDividendAmount);
+  if (verifiedDividendHistory.length) stock.verifiedDividendHistory = verifiedDividendHistory;
+  if (row.dividendDataStatus) stock.dividendDataStatus = row.dividendDataStatus;
+  if (row.dividendDataNote) stock.dividendDataNote = row.dividendDataNote;
+  if (Number.isFinite(Number(row.eps)) && Number(row.eps) > 0) stock.eps = Number(row.eps);
+  if (Number.isFinite(Number(row.peRatio)) && Number(row.peRatio) > 0) stock.peRatio = Number(row.peRatio);
+  if (Number.isFinite(Number(row.pbRatio)) && Number(row.pbRatio) > 0) stock.pbRatio = Number(row.pbRatio);
+  if (Number.isFinite(Number(row.roe))) stock.roe = Number(row.roe);
+  if (Number.isFinite(Number(row.profitMargin))) stock.profitMargin = Number(row.profitMargin);
+  if (Number.isFinite(Number(row.debtEquity))) stock.debtEquity = Number(row.debtEquity);
+  if (row.businessDescription) stock.businessDescription = row.businessDescription;
   reanalyzeStockMetrics(stock);
 }
 
@@ -1132,12 +1503,15 @@ function addOnlineDividendRows() {
     }
     const dividendYield = Number(row.yield) || 0;
     const annualDividend = Number(row.annualDividend) || 0;
-    const payoutRatio = Number(row.payout) || 65;
+    const payoutRatio = Number.isFinite(Number(row.payout)) ? Number(row.payout) : 65;
     const growthYears = Number(row.years) || 0;
     const marketCap = Number(row.marketCap) || 0;
-    const price = annualDividend > 0 && dividendYield > 0
-      ? Number((annualDividend / (dividendYield / 100)).toFixed(2))
-      : Number((20 + (ticker.charCodeAt(0) || 65) * 1.7).toFixed(2));
+    const directPrice = Number(row.price);
+    const price = Number.isFinite(directPrice) && directPrice > 0
+      ? Number(directPrice.toFixed(2))
+      : annualDividend > 0 && dividendYield > 0
+        ? Number((annualDividend / (dividendYield / 100)).toFixed(2))
+        : Number((20 + (ticker.charCodeAt(0) || 65) * 1.7).toFixed(2));
     const safety = clamp(100 - Math.max(0, payoutRatio - 45) * 0.75 + Math.min(growthYears, 25) * 0.8, 20, 95);
     const valuation = normalizeValuationLabel(row.valuation) || inferValuationLabelFromMetrics({
       dividendYield,
@@ -1154,7 +1528,7 @@ function addOnlineDividendRows() {
       category: row.sector || "Dividend Stocks",
       ticker,
       name: row.company || ticker,
-      currency: market === "Canada" ? "CAD" : market === "Europe" ? "EUR" : "USD",
+      currency: row.currency || row.dividendCurrency || currencyCodeForMarket(market),
       price,
       annualDividend,
       dividendYield: Number(dividendYield.toFixed(2)),
@@ -1171,7 +1545,9 @@ function addOnlineDividendRows() {
       exDate,
       recordDate,
       payDate,
-      history: deterministicHistory(price, ticker),
+      history: Array.isArray(row.history) && row.history.length >= 3
+        ? row.history.map(Number).filter((value) => Number.isFinite(value) && value > 0)
+        : deterministicHistory(price, ticker),
       platforms: platformChoices(market),
       reasons: [
         `${row.company || ticker} was imported from the online dividend stock universe, which tracks dividend yield, annual dividend, payout ratio, sector, and dividend growth streaks.`,
@@ -1179,7 +1555,9 @@ function addOnlineDividendRows() {
         `Payout ratio is ${Number(payoutRatio.toFixed(1))}%; extreme payout ratios reduce the score even when the headline yield looks attractive.`
       ]
     });
-    existing.set(`${market}:${ticker}`, stocks[stocks.length - 1]);
+    const created = stocks[stocks.length - 1];
+    applyOnlineUniverseMetricsToStock(created, row);
+    existing.set(`${market}:${ticker}`, created);
   });
 }
 
@@ -1405,6 +1783,24 @@ const protectedDividendTickers = new Set([
   "Nigeria:FIDSON",
   "Nigeria:NAHCO",
   "Nigeria:CUSTODIAN",
+  "Nigeria:TRANSCOHOT",
+  "Nigeria:HMCALL",
+  "Nigeria:ZICHIS",
+  "Nigeria:AFRIPRUD",
+  "Nigeria:CWG",
+  "Nigeria:IKEJAHOTEL",
+  "Nigeria:JBERGER",
+  "Nigeria:UPDC",
+  "Nigeria:NEM",
+  "Nigeria:ABCTRANS",
+  "Nigeria:MCNICHOLS",
+  "Nigeria:ETERNA",
+  "Nigeria:CONHALLPLC",
+  "Nigeria:VFDGROUP",
+  "Nigeria:NPFMCRFBK",
+  "Nigeria:UPDCREIT",
+  "Nigeria:SKYAVN",
+  "Nigeria:ETI",
   ...highProfileDividendStocks.map(([market, , ticker]) => `${market}:${ticker}`)
 ]);
 
@@ -1424,12 +1820,13 @@ function finalizeBestDividendUniverse() {
   const clean = stocks.filter((stock) => {
     const score = finalQualityScore(stock);
     const protectedName = protectedDividendTickers.has(`${stock.market}:${stock.ticker}`);
-    return (protectedName || score >= 30)
+    if (/acquisition|warrant|right|unit|preferred/i.test(stock.name)) return false;
+    if (protectedName) return true;
+    return score >= 30
       && stock.dividendYield > 0.1
       && stock.dividendYield <= 12
       && stock.payoutRatio > 0
-      && stock.payoutRatio <= 125
-      && !/acquisition|warrant|right|unit|preferred/i.test(stock.name);
+      && stock.payoutRatio <= 125;
   }).sort((a, b) => {
     const aProtected = protectedDividendTickers.has(`${a.market}:${a.ticker}`);
     const bProtected = protectedDividendTickers.has(`${b.market}:${b.ticker}`);
@@ -1603,6 +2000,8 @@ const staticDividendSnapshotPaths = {
 };
 const hostedStaticDividendRefreshMs = 60 * 1000;
 const hostedDividendSweepRefreshMs = 3 * 60 * 1000;
+const hostedDetailedMetricRefreshMs = 90 * 1000;
+const selectedStockDetailedMetricRefreshMs = 45 * 1000;
 const hostedDividendSweepBatchSize = 60;
 const hostedDividendSweepBatchCount = 2;
 let hostedDividendSnapshotVersions = {
@@ -1617,6 +2016,8 @@ let liveRefreshInFlight = false;
 let selectedStockLiveRefreshInFlight = false;
 let immediateHostedRefreshTimer = 0;
 let lastImmediateHostedRefreshAt = 0;
+let lastHostedDetailedMetricRefreshAt = 0;
+let lastSelectedStockDetailedMetricRefreshAt = 0;
 hostedDividendSnapshotVersions.nigeria = currentSnapshotVersion(window.NIGERIA_DIVIDEND_UPDATES || window.NIGERIA_DIVIDEND_DATES || {});
 hostedDividendSnapshotVersions.market = currentSnapshotVersion(window.MARKET_DIVIDEND_UPDATES || window.MARKET_DIVIDEND_DATES || {});
 const marketDropdownHome = marketDropdown?.parentElement || null;
@@ -2478,6 +2879,33 @@ function buildRangeHistory(stock, rangeKey) {
   });
 }
 
+function bestLifetimeHistorySeries(stock) {
+  const preferredRanges = ["lifetime", "5year", "yearly", "monthly", "weekly", "daily"];
+  for (const key of preferredRanges) {
+    const values = stock.historyByRange?.[key];
+    if (Array.isArray(values) && values.length >= 3) {
+      const rawLabels = Array.isArray(stock.historyLabelsByRange?.[key]) && stock.historyLabelsByRange[key].length >= values.length
+        ? stock.historyLabelsByRange[key].slice(-values.length)
+        : [];
+      return {
+        values: values.slice(-chartRanges.lifetime.points),
+        rawLabels: rawLabels.slice(-chartRanges.lifetime.points),
+        sourceRange: key
+      };
+    }
+  }
+
+  if (Array.isArray(stock.history) && stock.history.length >= 3) {
+    return {
+      values: stock.history.slice(-chartRanges.lifetime.points),
+      rawLabels: [],
+      sourceRange: "seed"
+    };
+  }
+
+  return null;
+}
+
 function normalizeIsoDate(value) {
   const raw = String(value || "").trim();
   const match = raw.match(/\d{4}-\d{2}-\d{2}/);
@@ -2540,14 +2968,17 @@ function buildTodaySessionOverlay(stock, values, labels) {
 }
 
 function getChartSeries(stock) {
-  const baseValues = buildRangeHistory(stock, chartRange);
-  const liveLabels = stock.historyLabelsByRange?.[chartRange];
-  const baseLabels = Array.isArray(liveLabels) && liveLabels.length >= baseValues.length
-    ? liveLabels.slice(-baseValues.length).map((label) => formatShortDate(new Date(label)))
-    : buildLabels(chartRange, baseValues.length);
+  const lifetimeSeries = chartRange === "lifetime" ? bestLifetimeHistorySeries(stock) : null;
+  const baseValues = lifetimeSeries?.values || buildRangeHistory(stock, chartRange);
+  const liveLabels = lifetimeSeries
+    ? lifetimeSeries.rawLabels
+    : stock.historyLabelsByRange?.[chartRange];
   const rawLabels = Array.isArray(liveLabels) && liveLabels.length >= baseValues.length
     ? liveLabels.slice(-baseValues.length)
     : [];
+  const baseLabels = rawLabels.length
+    ? rawLabels.map((label) => formatShortDate(new Date(label)))
+    : buildLabels(chartRange, baseValues.length);
   if (chartRange === "daily" && baseValues.length) {
     const overlayLabels = rawLabels.length ? rawLabels : buildDailyIsoLabels(baseValues.length);
     const overlay = buildTodaySessionOverlay(stock, baseValues, overlayLabels);
@@ -2775,6 +3206,30 @@ function queueImmediateHostedRefresh() {
   }, 250);
 }
 
+function shouldIncludeHostedDetailedMetrics(manual = false) {
+  if (manual) {
+    lastHostedDetailedMetricRefreshAt = Date.now();
+    return true;
+  }
+  if (window.location.protocol === "file:") return false;
+  const now = Date.now();
+  if (now - lastHostedDetailedMetricRefreshAt >= hostedDetailedMetricRefreshMs) {
+    lastHostedDetailedMetricRefreshAt = now;
+    return true;
+  }
+  return false;
+}
+
+function shouldIncludeSelectedStockDetailedMetrics() {
+  if (window.location.protocol === "file:") return false;
+  const now = Date.now();
+  if (now - lastSelectedStockDetailedMetricRefreshAt >= selectedStockDetailedMetricRefreshMs) {
+    lastSelectedStockDetailedMetricRefreshAt = now;
+    return true;
+  }
+  return false;
+}
+
 function historyIntervalForRange() {
   if (chartRange === "daily") return "d";
   if (chartRange === "weekly") return "w";
@@ -2882,6 +3337,34 @@ function applyQuoteToStock(stock, quote) {
       ensureEstimatedTodayPrice(stock);
     }
   }
+  if (Number.isFinite(Number(quote?.marketCap)) && Number(quote.marketCap) > 0) {
+    stock.marketCap = Number(quote.marketCap);
+  }
+  if (String(quote?.sector || "").trim()) {
+    stock.category = String(quote.sector).trim();
+  }
+  if (Number.isFinite(Number(quote?.annualDividend)) && Number(quote.annualDividend) > 0) {
+    stock.annualDividend = Number(quote.annualDividend);
+  }
+  if (Number.isFinite(Number(quote?.dividendYield)) && Number(quote.dividendYield) > 0) {
+    stock.dividendYield = Number(quote.dividendYield);
+  }
+  if (Number.isFinite(Number(quote?.payoutRatio)) && Number(quote.payoutRatio) > 0) {
+    stock.payoutRatio = Number(Number(quote.payoutRatio).toFixed(2));
+    stock.payoutSource = quote.provider || stock.payoutSource || "";
+    stock.payoutVerifiedAt = new Date().toISOString();
+    stock.payoutStatus = "Verified";
+  }
+  if (Number.isFinite(Number(quote?.eps)) && Number(quote.eps) > 0) stock.eps = Number(quote.eps);
+  if (Number.isFinite(Number(quote?.peRatio)) && Number(quote.peRatio) > 0) stock.peRatio = Number(quote.peRatio);
+  if (Number.isFinite(Number(quote?.pbRatio)) && Number(quote.pbRatio) > 0) stock.pbRatio = Number(quote.pbRatio);
+  if (Number.isFinite(Number(quote?.roe))) stock.roe = Number(quote.roe);
+  if (Number.isFinite(Number(quote?.profitMargin))) stock.profitMargin = Number(quote.profitMargin);
+  if (Number.isFinite(Number(quote?.debtEquity))) stock.debtEquity = Number(quote.debtEquity);
+  if (String(quote?.businessDescription || "").trim()) {
+    stock.businessDescription = String(quote.businessDescription).trim();
+  }
+    updateTradingVolumeFromMarketData(stock, quote, Array.isArray(quote?.history) ? quote.history : []);
   if (quote?.liquidity) {
     applyLiquidityPayloadToStock(stock, quote.liquidity);
   } else {
@@ -2997,8 +3480,26 @@ function applyHistoryToStock(stock, historyPoints, rangeKey = chartRange) {
     stock.history = closes.slice(-120);
   }
   if (rangeKey === "daily" && historyPoints.some((row) => Number.isFinite(Number(row?.volume)) && Number(row.volume) > 0)) {
+    updateTradingVolumeFromMarketData(stock, null, historyPoints);
     updateLiquiditySnapshotFromMarketData(stock, { price: Number(stock.price), provider: stock.liveStatus || "Live daily history" }, historyPoints);
   }
+  if (rangeKey === "daily" && closes.length >= 15) {
+    const recalculatedRsi = calculateRsi(closes, 14);
+    stock.dailyHistoryVerified = true;
+    stock.dailyHistoryProvider = stock.dailyHistoryProvider || stock.verifiedRsiData?.provider || "Live daily history";
+    if (Number.isFinite(recalculatedRsi)) {
+      stock.verifiedRsiData = {
+        ...(stock.verifiedRsiData || {}),
+        value: Math.round(recalculatedRsi),
+        label: rsiLabelForValue(recalculatedRsi),
+        status: "Verified",
+        provider: stock.verifiedRsiData?.provider || stock.dailyHistoryProvider || "Live daily history",
+        closesCount: closes.length,
+        verifiedAt: new Date().toISOString()
+      };
+    }
+  }
+  reanalyzeStockMetrics(stock);
 }
 
 function dividendDataSource(stock) {
@@ -3446,12 +3947,24 @@ async function refreshSelectedStockFast() {
   if (!stock) return 0;
   selectedStockLiveRefreshInFlight = true;
   try {
-    const hostedDaily = await fetchHostedMarketDataBatch([stock], "d").catch(() => null);
+    const includeDetailedMetrics = shouldIncludeSelectedStockDetailedMetrics();
+    const hostedDaily = await fetchHostedMarketDataBatch([stock], "d", {
+      dividends: includeDetailedMetrics
+    }).catch(() => null);
     const quote = hostedDaily?.quotes?.[`${stock.market}:${stock.ticker}`];
     if (!quote) return 0;
     applyQuoteToStock(stock, quote);
     if (Array.isArray(quote.history) && quote.history.length >= 3) {
-      applyHistoryToStock(stock, quote.history, chartRange);
+      applyHistoryToStock(stock, quote.history, "daily");
+    }
+    if (Array.isArray(quote.history) && quote.history.length >= 15) {
+      applyVerifiedRsiPayloadToStock(stock, {
+        ...(quote.rsi || {}),
+        provider: quote.rsi?.provider || quote.provider || "Live daily history",
+        dailyHistory: quote.history.map((row) => row.close),
+        dailyLabels: quote.history.map((row) => row.date),
+        closesCount: quote.history.length
+      });
     }
     reanalyzeStockMetrics(stock);
     renderDetail(stock);
@@ -3468,20 +3981,20 @@ async function refreshLivePrices(manual = false) {
   refreshPrices.disabled = true;
   refreshPrices.textContent = "Updating...";
   try {
-    let updated = 0;
-    let chartUpdates = 0;
-    let dividendUpdates = 0;
-    const marketUniverse = stocksForSelectedMarkets();
-    const autoLimit = window.location.protocol === "file:" ? 120 : marketUniverse.length;
-    const visibleStocks = manual
-      ? marketUniverse
-      : prioritizeStocksForHostedRefresh(marketUniverse.slice(0, autoLimit), false);
-    const includeDividendData = manual;
+      let updated = 0;
+      let chartUpdates = 0;
+      let dividendUpdates = 0;
+      const marketUniverse = stocksForSelectedMarkets();
+      const autoLimit = window.location.protocol === "file:" ? 120 : marketUniverse.length;
+      const visibleStocks = manual
+        ? marketUniverse
+        : prioritizeStocksForHostedRefresh(marketUniverse.slice(0, autoLimit), false);
+      const includeDividendData = shouldIncludeHostedDetailedMetrics(manual);
 
-    let hostedDataFound = false;
-    if (window.location.protocol !== "file:") {
-      for (const batch of chunkItems(visibleStocks, 60)) {
-        const hostedBatch = await fetchHostedMarketDataBatch(batch, historyIntervalForRange(), {
+      let hostedDataFound = false;
+      if (window.location.protocol !== "file:") {
+        for (const batch of chunkItems(visibleStocks, 60)) {
+          const hostedBatch = await fetchHostedMarketDataBatch(batch, historyIntervalForRange(), {
           dividends: includeDividendData
         }).catch(() => null);
         if (!hostedBatch?.quotes) continue;
@@ -3516,18 +4029,26 @@ async function refreshLivePrices(manual = false) {
         if (manual) {
           refreshPrices.textContent = `Updating ${Math.min(updated + batch.length, visibleStocks.length)}/${visibleStocks.length}...`;
         }
-        await Promise.allSettled(batch.map(async (stock) => {
-          const quote = await fetchYahooChart(stock).catch(() => null);
-          if (!quote) return;
-          applyQuoteToStock(stock, quote);
-          if (quote.history?.length >= 3) {
-            applyHistoryToStock(stock, quote.history, chartRange);
-            chartUpdates += 1;
-          }
-          updated += 1;
-          updatedKeys.add(`${stock.market}:${stock.ticker}`);
-        }));
-      }
+          await Promise.allSettled(batch.map(async (stock) => {
+            const quote = await fetchYahooChart(stock).catch(() => null);
+            if (!quote) return;
+            applyQuoteToStock(stock, quote);
+            if (quote.history?.length >= 3) {
+              applyHistoryToStock(stock, quote.history, chartRange);
+              chartUpdates += 1;
+            }
+            if (quote.history?.length >= 15) {
+              applyVerifiedRsiPayloadToStock(stock, {
+                provider: quote.rsi?.provider || quote.provider || "Live daily history",
+                dailyHistory: quote.history.map((row) => row.close),
+                dailyLabels: quote.history.map((row) => row.date),
+                closesCount: quote.history.length
+              });
+            }
+            updated += 1;
+            updatedKeys.add(`${stock.market}:${stock.ticker}`);
+          }));
+        }
 
       const chartStocks = [
         stocks.find((stock) => stock.ticker === selectedTicker),
@@ -4219,10 +4740,9 @@ function stockOfDayRank(stock) {
     : stock.payoutRatio <= 90
       ? 4
       : -8;
-  const safetyScore = Number(stock.safety || 0) / 10;
   const signalScore = stock.signal === "Buy" ? 18 : stock.signal === "Hold" ? 4 : -12;
   const sizeScore = Math.min(8, Math.log10(Math.max(Number(stock.marketCap || 0), 1)) / 2);
-  return score + yieldScore + payoutScore + safetyScore + signalScore + sizeScore;
+  return score + yieldScore + payoutScore + signalScore + sizeScore;
 }
 
 function stockOfDayReason(stock) {
@@ -4932,8 +5452,13 @@ function drawChart(stock, highlightIndex = -1) {
       ? activeChartPointIndex
       : -1;
   const activeHighlight = Math.min(Math.max(selectedHighlight, -1), values.length - 1);
-  const min = Math.min(...values) * 0.96;
-  const max = Math.max(...values) * 1.04;
+  const actualMin = Math.min(...values);
+  const actualMax = Math.max(...values);
+  const spreadPadding = actualMax === actualMin
+    ? Math.max(Math.abs(actualMax) * 0.08, 1)
+    : Math.max((actualMax - actualMin) * 0.08, Math.abs(actualMax) * 0.02);
+  const min = actualMin - (spreadPadding / 2);
+  const max = actualMax + (spreadPadding / 2);
   const darkChart = document.body.dataset.theme === "dark";
   const trendUp = values[values.length - 1] >= values[0];
   const trendLine = trendUp ? "#10b981" : "#ef4444";
@@ -5044,8 +5569,8 @@ function drawChart(stock, highlightIndex = -1) {
 
   ctx.fillStyle = chartColors.text;
   ctx.font = "14px Arial";
-  ctx.fillText(`${formatMoney(stock, max)} high`, pad, 24);
-  ctx.fillText(`${formatMoney(stock, min)} low`, pad, height - 14);
+  ctx.fillText(`${formatMoney(stock, actualMax)} high`, pad, 24);
+  ctx.fillText(`${formatMoney(stock, actualMin)} low`, pad, height - 14);
   ctx.textAlign = "right";
   ctx.fillText(stock.liveStatus ? `Updated ${series.title.toLowerCase()}` : series.title, width - pad, 24);
   ctx.textAlign = "left";
@@ -5295,7 +5820,7 @@ function renderDetail(stock) {
     ["Buy score", `${finalQualityScore(stock)}/100`],
     ["Payout ratio", `${stock.payoutRatio}%`],
     ["Dividend growth", `${stock.divGrowth}%`],
-    ["Safety score", `${stock.safety}/100`],
+    ["24h trading volume", tradingVolumeCardValue(stock)],
     ["14 Day RSI", `${rsi.value}${rsi.value === "N/A" ? "" : "/100"} (${rsi.label}) - ${rsi.sourceLabel}`],
     ["Dividend frequency", dividendFrequency(stock)]
   ].map(([label, value]) => `<div class="metric"><span>${label}</span><strong>${value}</strong></div>`).join("");

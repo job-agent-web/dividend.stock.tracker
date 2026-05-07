@@ -44,6 +44,7 @@ const yahooSymbolOverrides = {
 };
 
 let stockNameLookup = null;
+const ngxPulseQuoteCache = new Map();
 
 const CORPORATE_NAME_STOP_WORDS = new Set([
   "adr",
@@ -210,6 +211,65 @@ function yahooRange(interval) {
   return { range: "1y", interval: "1mo" };
 }
 
+function currentIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function normalizeQuoteDate(value) {
+  const raw = String(value || "").trim();
+  const match = raw.match(/\d{4}-\d{2}-\d{2}/);
+  return match ? match[0] : "";
+}
+
+function quoteSortKey(quote = {}) {
+  const date = normalizeQuoteDate(quote.date);
+  const time = String(quote.time || "").trim().slice(0, 5);
+  return `${date}T${time || "00:00"}`;
+}
+
+function isQuoteStaleForToday(quote = {}) {
+  const date = normalizeQuoteDate(quote.date);
+  return Boolean(date) && date < currentIsoDate();
+}
+
+function chooseFresherQuote(primary, candidate) {
+  if (!candidate) return primary || null;
+  if (!primary) return candidate;
+  const primaryKey = quoteSortKey(primary);
+  const candidateKey = quoteSortKey(candidate);
+  if (candidateKey > primaryKey) return candidate;
+  if (candidateKey === primaryKey) {
+    const primaryProvider = String(primary.provider || "").toLowerCase();
+    const candidateProvider = String(candidate.provider || "").toLowerCase();
+    if (primaryProvider.includes("stooq") && candidateProvider.includes("yahoo")) {
+      return candidate;
+    }
+  }
+  return primary;
+}
+
+function yahooLiveSnapshot(meta = {}) {
+  const snapshots = [
+    {
+      price: Number(meta.postMarketPrice),
+      timestamp: Number(meta.postMarketTime),
+      label: "Yahoo post-market quote"
+    },
+    {
+      price: Number(meta.preMarketPrice),
+      timestamp: Number(meta.preMarketTime),
+      label: "Yahoo pre-market quote"
+    },
+    {
+      price: Number(meta.regularMarketPrice),
+      timestamp: Number(meta.regularMarketTime),
+      label: "Yahoo delayed quote"
+    }
+  ].filter((entry) => Number.isFinite(entry.price) && entry.price > 0 && Number.isFinite(entry.timestamp) && entry.timestamp > 0)
+    .sort((a, b) => b.timestamp - a.timestamp);
+  return snapshots[0] || null;
+}
+
 function calculateRsi(values, period = 14) {
   const prices = Array.isArray(values) ? values.map(Number).filter((value) => Number.isFinite(value) && value > 0) : [];
   if (prices.length < period + 1) return null;
@@ -247,12 +307,12 @@ function clamp(value, min, max) {
 }
 
 function liquidityLabelForScore(score) {
-  return score >= 75 ? "High" : score >= 55 ? "Medium" : "Lower";
+  return score >= 61 ? "High" : score >= 31 ? "Moderate" : "Low";
 }
 
 function liquidityNoteForScore(score) {
-  if (score >= 75) return "Usually easier to buy and sell with tighter spreads on major platforms.";
-  if (score >= 55) return "Tradable, but check spreads, order size, settlement timing, and platform availability.";
+  if (score >= 61) return "Usually easier to buy and sell with tighter spreads on major platforms.";
+  if (score >= 31) return "Tradable, but check spreads, order size, settlement timing, and platform availability.";
   return "Can be harder to trade quickly; use limit orders and check local broker liquidity before buying.";
 }
 
@@ -355,6 +415,148 @@ async function fetchJson(url) {
   }
 }
 
+async function fetchText(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "user-agent": "Mozilla/5.0 (compatible; DividendStockTracker/1.0; +https://dividendstocktracker.vercel.app)",
+        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+      }
+    });
+    if (!response.ok) return "";
+    return response.text();
+  } catch {
+    return "";
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function extractAssignedJson(html, variableName) {
+  const marker = `window.${variableName}`;
+  const start = String(html || "").indexOf(marker);
+  if (start < 0) return null;
+  const equalsIndex = html.indexOf("=", start);
+  const objectStart = html.indexOf("{", equalsIndex);
+  if (equalsIndex < 0 || objectStart < 0) return null;
+  let depth = 0;
+  let quote = "";
+  for (let index = objectStart; index < html.length; index += 1) {
+    const char = html[index];
+    if (quote) {
+      if (char === "\\") {
+        index += 1;
+      } else if (char === quote) {
+        quote = "";
+      }
+      continue;
+    }
+    if (char === "\"" || char === "'" || char === "`") {
+      quote = char;
+      continue;
+    }
+    if (char === "{") {
+      depth += 1;
+      continue;
+    }
+    if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        try {
+          return JSON.parse(html.slice(objectStart, index + 1));
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function ngxPulseTradeDate(value) {
+  const date = new Date(value || "");
+  return Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 10) : "";
+}
+
+function normalizeNgxDividendRows(dividends) {
+  const rows = Array.isArray(dividends) ? dividends : dividends ? [dividends] : [];
+  return rows.map((row) => ({
+    exDate: cleanDate(row.ex_dividend_date || row.exDate || row.date || ""),
+    recordDate: cleanDate(row.record_date || row.recordDate || ""),
+    payDate: cleanDate(row.pay_date || row.payDate || ""),
+    amount: cleanAmount(row.dividend_per_share || row.amount || 0),
+    currency: String(row.currency || "NGN").trim().toUpperCase() || "NGN"
+  })).filter((row) => row.exDate || row.recordDate || row.payDate || row.amount > 0);
+}
+
+function annualDividendFromNgxRows(rows = []) {
+  if (!Array.isArray(rows) || !rows.length) return 0;
+  const latestTime = Math.max(...rows.map((row) => Date.parse(`${row.exDate || row.recordDate || row.payDate || "1970-01-01"}T00:00:00Z`) || 0));
+  if (!latestTime) return 0;
+  const oneYearMs = 370 * 24 * 60 * 60 * 1000;
+  const total = rows
+    .filter((row) => {
+      const eventTime = Date.parse(`${row.exDate || row.recordDate || row.payDate || "1970-01-01"}T00:00:00Z`) || 0;
+      return eventTime > 0 && (latestTime - eventTime) <= oneYearMs;
+    })
+    .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  return Number(total.toFixed(4));
+}
+
+async function fetchNgxPulseNigeriaQuote(ticker, companyName = "") {
+  const symbol = String(ticker || "").trim().toUpperCase();
+  if (!symbol) return null;
+  const cached = ngxPulseQuoteCache.get(symbol);
+  const now = Date.now();
+  if (cached && now - cached.cachedAt < 60 * 1000) {
+    return cached.payload;
+  }
+
+  const html = await fetchText(`https://ngxpulse.ng/stocks/${encodeURIComponent(symbol)}`);
+  if (!html) return null;
+  const stock = extractAssignedJson(html, "__SSR_STOCK__");
+  if (!stock || String(stock.symbol || "").trim().toUpperCase() !== symbol) return null;
+  const fundamentals = extractAssignedJson(html, "__SSR_FUNDAMENTALS__");
+  const dividends = extractAssignedJson(html, "__SSR_DIVIDENDS__");
+  const dividendRows = normalizeNgxDividendRows(dividends);
+  const annualDividend = annualDividendFromNgxRows(dividendRows);
+  const livePrice = Number(stock.current_price);
+  const eps = Number(fundamentals?.eps);
+  const payoutRatio = annualDividend > 0 && Number.isFinite(eps) && eps > 0
+    ? Number(((annualDividend / eps) * 100).toFixed(2))
+    : 0;
+  const computedYield = annualDividend > 0 && Number.isFinite(livePrice) && livePrice > 0
+    ? Number(((annualDividend / livePrice) * 100).toFixed(2))
+    : 0;
+  const payload = Number.isFinite(livePrice) && livePrice > 0 ? {
+    price: livePrice,
+    date: ngxPulseTradeDate(stock.trade_date),
+    time: "",
+    provider: "NGX Pulse live quote",
+    volume: Number(stock.volume) > 0 ? Number(stock.volume) : 0,
+    marketCap: Number(stock.market_cap) > 0 ? Number(stock.market_cap) : 0,
+    sector: String(stock.sector || "").trim(),
+    annualDividend: annualDividend > 0 ? annualDividend : 0,
+    dividendYield: Number.isFinite(Number(fundamentals?.dividend_yield)) && Number(fundamentals.dividend_yield) > 0
+      ? Number(fundamentals.dividend_yield)
+      : computedYield,
+    payoutRatio,
+    eps: Number.isFinite(eps) && eps > 0 ? eps : 0,
+    peRatio: Number.isFinite(Number(fundamentals?.pe_ratio)) && Number(fundamentals.pe_ratio) > 0 ? Number(fundamentals.pe_ratio) : 0,
+    pbRatio: Number.isFinite(Number(fundamentals?.pb_ratio)) && Number(fundamentals.pb_ratio) > 0 ? Number(fundamentals.pb_ratio) : 0,
+    roe: Number.isFinite(Number(fundamentals?.roe)) ? Number(fundamentals.roe) : NaN,
+    profitMargin: Number.isFinite(Number(fundamentals?.profit_margin)) ? Number(fundamentals.profit_margin) : NaN,
+    debtEquity: Number.isFinite(Number(fundamentals?.debt_equity)) ? Number(fundamentals.debt_equity) : NaN,
+    businessDescription: String(stock.description || companyName || "").trim()
+  } : null;
+
+  ngxPulseQuoteCache.set(symbol, { cachedAt: now, payload });
+  return payload;
+}
+
 async function fetchQuote(symbol) {
   const url = `https://stooq.com/q/l/?s=${encodeURIComponent(symbol)}&f=sd2t2ohlcv&h&e=csv`;
   const response = await fetch(url, { headers: { "user-agent": "dividend-tracker/1.0" } });
@@ -405,8 +607,9 @@ async function fetchYahooChart(ticker, market, interval = "d", companyName = "")
     const result = data?.chart?.result?.[0];
     const sourceName = result?.meta?.longName || result?.meta?.shortName || "";
     if (!namesLikelyMatch(expectedName, sourceName)) continue;
-    const price = Number(result?.meta?.regularMarketPrice);
-    if (!Number.isFinite(price) || price <= 0) continue;
+    const liveSnapshot = yahooLiveSnapshot(result?.meta || {});
+    if (!liveSnapshot) continue;
+    const price = liveSnapshot.price;
     const timestamps = result.timestamp || [];
     const closes = result.indicators?.quote?.[0]?.close || [];
     const volumes = result.indicators?.quote?.[0]?.volume || [];
@@ -420,13 +623,13 @@ async function fetchYahooChart(ticker, market, interval = "d", companyName = "")
       || 0;
     return {
       price,
-      date: result.meta?.regularMarketTime
-        ? new Date(result.meta.regularMarketTime * 1000).toISOString().slice(0, 10)
+      date: liveSnapshot.timestamp
+        ? new Date(liveSnapshot.timestamp * 1000).toISOString().slice(0, 10)
         : "",
-      time: result.meta?.regularMarketTime
-        ? new Date(result.meta.regularMarketTime * 1000).toISOString().slice(11, 16)
+      time: liveSnapshot.timestamp
+        ? new Date(liveSnapshot.timestamp * 1000).toISOString().slice(11, 16)
         : "",
-      provider: "Yahoo delayed quote",
+      provider: liveSnapshot.label,
       volume: Number.isFinite(Number(latestVolume)) && Number(latestVolume) > 0 ? Number(latestVolume) : 0,
       history
     };
@@ -580,7 +783,37 @@ async function fetchYahooDividendEvents(ticker, market) {
 async function fetchDividendData(ticker, market) {
   if (market === "Nigeria") {
     const nigeriaPublic = await fetchNigeriaPublicDividendData(ticker, stockCompanyName(ticker, market) || ticker).catch(() => null);
+    const scrapedNigeria = await fetchPublicDividendPageData(ticker, market, stockCompanyName(ticker, market) || ticker).catch(() => null);
+    if (nigeriaPublic && scrapedNigeria) {
+      return {
+        ...scrapedNigeria,
+        ...nigeriaPublic,
+        amount: Number(nigeriaPublic.amount) > 0 ? nigeriaPublic.amount : scrapedNigeria.amount,
+        currency: nigeriaPublic.currency || scrapedNigeria.currency || "NGN",
+        history: Array.isArray(scrapedNigeria.history) && scrapedNigeria.history.length
+          ? scrapedNigeria.history
+          : (Array.isArray(nigeriaPublic.history) ? nigeriaPublic.history : []),
+        payoutRatio: Number.isFinite(Number(scrapedNigeria.payoutRatio)) && Number(scrapedNigeria.payoutRatio) > 0
+          ? scrapedNigeria.payoutRatio
+          : nigeriaPublic.payoutRatio,
+        payoutProvider: scrapedNigeria.payoutProvider || scrapedNigeria.provider || nigeriaPublic.payoutProvider || "",
+        dividendGrowthYears: Number.isFinite(Number(scrapedNigeria.dividendGrowthYears))
+          ? scrapedNigeria.dividendGrowthYears
+          : nigeriaPublic.dividendGrowthYears,
+        dividendGrowthRate: Number.isFinite(Number(scrapedNigeria.dividendGrowthRate))
+          ? scrapedNigeria.dividendGrowthRate
+          : nigeriaPublic.dividendGrowthRate,
+        annualDividend: Number(scrapedNigeria.annualDividend) > 0
+          ? scrapedNigeria.annualDividend
+          : nigeriaPublic.annualDividend,
+        note: [nigeriaPublic.note, scrapedNigeria.note].filter(Boolean).join(" ").trim(),
+        sourceUrl: nigeriaPublic.sourceUrl || scrapedNigeria.sourceUrl || "",
+        provider: nigeriaPublic.provider || scrapedNigeria.provider || "Public Nigerian dividend pages",
+        verifiedAt: nigeriaPublic.verifiedAt || scrapedNigeria.verifiedAt || new Date().toISOString()
+      };
+    }
     if (nigeriaPublic?.nextDeclared || nigeriaPublic?.history?.length) return nigeriaPublic;
+    if (scrapedNigeria?.nextDeclared || scrapedNigeria?.history?.length || Number.isFinite(Number(scrapedNigeria?.payoutRatio))) return scrapedNigeria;
   }
 
   const scraped = await fetchPublicDividendPageData(ticker, market, stockCompanyName(ticker, market) || ticker).catch(() => null);
@@ -638,13 +871,22 @@ async function handler(request, response) {
     let rsi = null;
     let liquidity = null;
     let verifiedFallback = null;
+    if (!dividendsOnly && market === "Nigeria") {
+      quote = await fetchNgxPulseNigeriaQuote(ticker, stockCompanyName(ticker, market) || ticker).catch(() => null);
+    }
     if (!dividendsOnly && symbol) {
-      quote = await fetchQuote(symbol).catch(() => null);
+      const stooqQuote = await fetchQuote(symbol).catch(() => null);
+      quote = chooseFresherQuote(quote, stooqQuote);
       history = await fetchHistory(symbol, interval).catch(() => []);
     }
-    if (!dividendsOnly && !quote) {
-      quote = await fetchYahooChart(ticker, market, interval).catch(() => null);
-      history = quote?.history || history;
+    if (!dividendsOnly) {
+      const yahooQuote = (!quote || isQuoteStaleForToday(quote))
+        ? await fetchYahooChart(ticker, market, interval).catch(() => null)
+        : null;
+      quote = chooseFresherQuote(quote, yahooQuote);
+      if (yahooQuote?.history?.length) {
+        history = yahooQuote.history;
+      }
     }
     if (!dividendsOnly) {
       let dailyHistory = interval === "d"
