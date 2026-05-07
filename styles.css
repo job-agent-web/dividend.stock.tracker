@@ -2796,6 +2796,29 @@ body[data-theme="dark"] .pwa-update-copy span {
   cursor: pointer;
 }
 
+.youtube-summary-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.youtube-logo-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ff4d4d, #dc2626);
+  box-shadow: 0 8px 18px rgba(220, 38, 38, 0.18);
+}
+
+.youtube-logo-badge svg {
+  width: 14px;
+  height: 14px;
+  fill: #ffffff;
+}
+
 .youtube-market .youtube-link {
   margin: 0 10px 10px;
 }
@@ -2913,6 +2936,12 @@ body[data-theme="dark"] .pwa-update-copy span {
   transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
 
+.stock-copy {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
 .stock-button::before {
   content: "";
   position: absolute;
@@ -2960,6 +2989,14 @@ body[data-theme="dark"] .pwa-update-copy span {
   font-size: 1.02rem;
   font-weight: 800;
   color: #0f172a;
+}
+
+.stock-logo-credit {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-decoration: none;
 }
 
 .signal-price {
@@ -4471,9 +4508,48 @@ body[data-theme="dark"] .dividend-date-alert.urgent strong {
   transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
 
+.platform-card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.platform-card-link,
+.platform-card-link * {
+  cursor: pointer;
+}
+
 .platform strong {
   display: block;
   margin-bottom: 5px;
+}
+
+.platform-link {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.platform-link:hover,
+.platform-link:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.platform-link-action {
+  margin-top: 6px;
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 700;
+  width: fit-content;
+}
+
+.platform-card-link:focus-visible {
+  outline: 2px solid rgba(36, 95, 199, 0.35);
+  outline-offset: 2px;
 }
 
 .liquidity-line {

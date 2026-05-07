@@ -1,4 +1,4 @@
-const cacheName = "dividend-stock-tracker-v7";
+const cacheName = "dividend-stock-tracker-v8";
 const coreAssets = [
   "signin.html",
   "signup.html",

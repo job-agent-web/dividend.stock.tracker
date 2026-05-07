@@ -1169,6 +1169,28 @@ function platformChoices(market) {
   ];
 }
 
+function platformWebsiteUrl(platformName, stock = {}) {
+  const label = String(platformName || "").trim().toLowerCase();
+  if (!label) return "";
+  if (label.includes("trading 212")) return "https://www.trading212.com/en";
+  if (label.includes("freetrade")) return "https://freetrade.io/";
+  if (label.includes("hargreaves")) return "https://www.hl.co.uk/";
+  if (label.includes("aj bell")) return "https://www.ajbell.co.uk/";
+  if (label.includes("interactive investor")) return "https://www.ii.co.uk/";
+  if (label.includes("interactive brokers")) return "https://www.interactivebrokers.com/";
+  if (label.includes("revolut")) return "https://www.revolut.com/wealth-and-trading/";
+  if (label.includes("bamboo")) return "https://investbamboo.com/";
+  if (label.includes("investnaija")) return "https://investnaija.com/";
+  if (label.includes("chaka")) return "https://chaka.com/";
+  if (label.includes("trove")) return "https://www.trovefinance.com/nigeria/";
+  if (label.includes("risevest") || label === "rise") return "https://www.risevest.com/";
+  if (label.includes("vfex")) return "https://vfex.exchange/";
+  if (label.includes("zse")) return "https://www.zse.co.zw/";
+  if (label.includes("frontier-market")) return "https://www.zse.co.zw/";
+  if (stock.market === "Zimbabwe") return "https://www.zse.co.zw/";
+  return "";
+}
+
 function currencyCodeForMarket(market) {
   if (market === "Nigeria") return "NGN";
   if (market === "UK") return "GBP";
@@ -1961,6 +1983,8 @@ let activeMarkets = [];
 let latestIpos = [];
 let watchlistKeys = readJson("dividendWatchlist", []);
 let portfolioHoldings = readJson("dividendPortfolio", {});
+let portfolioDraftKey = "";
+let portfolioDraftDirty = false;
 let compareKeys = readJson("dividendCompareStocks", []);
 let inactivityTimer = null;
 let watchlistToastTimer = null;
@@ -1972,6 +1996,240 @@ const allMarkets = ["US", "UK", "Canada", "Nigeria", "Europe", "Asia", "Zimbabwe
 const marketLabels = {};
 const fxRatesToUsd = { USD: 1, GBP: 1.25, NGN: 0.00065, CAD: 0.73, EUR: 1.08, CHF: 1.1, JPY: 0.0066, ZWL: 0.0028 };
 const adminContactEmail = "dividendstocktracker@gmail.com";
+const stockLogoUrlStorageKey = "dividendStockLogoUrlsV1";
+const stockLogoMissStorageKey = "dividendStockLogoMissesV1";
+const stockLogoUrlCache = readJson(stockLogoUrlStorageKey, {});
+const stockLogoMissCache = readJson(stockLogoMissStorageKey, {});
+const stockLogoLookupQueue = [];
+const stockLogoQueuedKeys = new Set();
+let stockLogoObserver = null;
+let stockLogoLookupTimer = null;
+let stockLogoLookupInFlight = false;
+let stockLogoLastLookupAt = 0;
+const stockLogoLookupIntervalMs = 1200;
+
+function saveStockLogoCaches() {
+  localStorage.setItem(stockLogoUrlStorageKey, JSON.stringify(stockLogoUrlCache));
+  localStorage.setItem(stockLogoMissStorageKey, JSON.stringify(stockLogoMissCache));
+}
+
+function stockLogoMonogram(stock) {
+  const base = String(stock?.name || stock?.ticker || "?").replace(/[^A-Za-z0-9 ]+/g, " ").trim();
+  if (!base) return "?";
+  const parts = base.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
+}
+
+function commonsImageUrl(fileName) {
+  return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}?width=96`;
+}
+
+function stockLogoUrlForStock(stock) {
+  return stockLogoUrlCache[stockKey(stock)] || "";
+}
+
+function stockLogoMarkup(stock) {
+  const key = stockKey(stock);
+  const logoUrl = stockLogoUrlForStock(stock);
+  const fallback = `<span class="stock-logo-fallback">${stockLogoMonogram(stock)}</span>`;
+  const attrs = `class="stock-logo" data-stock-key="${key}" data-ticker="${stock.ticker}" data-market="${stock.market}" data-name="${encodeURIComponent(stock.name)}"`;
+  if (logoUrl) {
+    return `<span ${attrs} data-logo-state="resolved" data-logo-url="${logoUrl}"><img class="stock-logo-image" src="${logoUrl}" alt="${stock.name} logo" loading="lazy" decoding="async" referrerpolicy="no-referrer">${fallback}</span>`;
+  }
+  if (stockLogoMissCache[key]) {
+    return `<span ${attrs} data-logo-state="missing">${fallback}</span>`;
+  }
+  return `<span ${attrs} data-logo-state="pending">${fallback}</span>`;
+}
+
+function normalizeCompanyName(name) {
+  return String(name || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/\b(plc|inc|corporation|corp|company|co|holdings|holding|group|limited|ltd|communications|energy|nigeria|international|bank)\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function scoreWikidataSearchResult(result, stock) {
+  const resultName = normalizeCompanyName(result?.label || result?.display?.label?.value || "");
+  const stockName = normalizeCompanyName(stock?.name || "");
+  let score = 0;
+  if (stockName && resultName === stockName) score += 85;
+  else if (stockName && (resultName.includes(stockName) || stockName.includes(resultName))) score += 35;
+  const description = String(result?.description || result?.display?.description?.value || "").toLowerCase();
+  if (description.includes("company")) score += 14;
+  if (description.includes("bank")) score += 8;
+  if (description.includes("telecommunications")) score += 8;
+  if (description.includes("oil")) score += 6;
+  if (description.includes(stock.ticker.toLowerCase())) score += 10;
+  return score;
+}
+
+async function searchWikidataEntities(query) {
+  const url = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(query)}&language=en&format=json&limit=5&origin=*`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Wikidata search failed: ${response.status}`);
+  return response.json();
+}
+
+async function wikidataEntityLogoUrl(entityId) {
+  const response = await fetch(`https://www.wikidata.org/wiki/Special:EntityData/${encodeURIComponent(entityId)}.json`);
+  if (!response.ok) throw new Error(`Wikidata entity failed: ${response.status}`);
+  const payload = await response.json();
+  const entity = payload?.entities?.[entityId];
+  const logoClaim = entity?.claims?.P154?.[0]?.mainsnak?.datavalue?.value;
+  if (logoClaim) return commonsImageUrl(logoClaim);
+  const imageClaim = entity?.claims?.P18?.[0]?.mainsnak?.datavalue?.value;
+  if (imageClaim) return commonsImageUrl(imageClaim);
+  return "";
+}
+
+async function searchWikipediaThumbnail(query) {
+  const url = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=3&prop=pageimages&piprop=thumbnail&pithumbsize=96&format=json&origin=*`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Wikipedia search failed: ${response.status}`);
+  return response.json();
+}
+
+function scoreWikipediaResult(page, stock) {
+  const pageTitle = normalizeCompanyName(page?.title || "");
+  const stockName = normalizeCompanyName(stock?.name || "");
+  let score = 0;
+  if (stockName && pageTitle === stockName) score += 80;
+  else if (stockName && (pageTitle.includes(stockName) || stockName.includes(pageTitle))) score += 30;
+  if (page?.thumbnail?.source) score += 15;
+  return score;
+}
+
+async function resolveLogoUrlForStock(stock) {
+  const queries = [...new Set([
+    stock.name,
+    `${stock.name} ${stock.ticker}`,
+    normalizeCompanyName(stock.name)
+  ].filter((value) => value && value.length >= 2))];
+
+  for (const query of queries) {
+    try {
+      const payload = await searchWikidataEntities(query);
+      const results = Array.isArray(payload?.search) ? payload.search : [];
+      const best = results
+        .map((result) => ({ result, score: scoreWikidataSearchResult(result, stock) }))
+        .sort((left, right) => right.score - left.score)[0];
+      if (best?.result?.id && best.score >= 25) {
+        const logoUrl = await wikidataEntityLogoUrl(best.result.id);
+        if (logoUrl) return logoUrl;
+      }
+    } catch {
+      break;
+    }
+  }
+
+  for (const query of queries) {
+    try {
+      const payload = await searchWikipediaThumbnail(query);
+      const pages = Object.values(payload?.query?.pages || {});
+      if (!pages.length) continue;
+      const best = pages
+        .map((page) => ({ page, score: scoreWikipediaResult(page, stock) }))
+        .sort((left, right) => right.score - left.score)[0];
+      if (best?.page?.thumbnail?.source && best.score >= 20) return best.page.thumbnail.source;
+    } catch {
+      break;
+    }
+  }
+  return "";
+}
+
+function renderResolvedStockLogo(node, logoUrl) {
+  if (!node || !logoUrl) return;
+  const stock = findStockByKey(node.dataset.stockKey);
+  const fallback = stockLogoMonogram(stock || { ticker: node.dataset.ticker, name: decodeURIComponent(node.dataset.name || "") });
+  node.dataset.logoUrl = logoUrl;
+  node.dataset.logoState = "resolved";
+  node.innerHTML = `<img class="stock-logo-image" src="${logoUrl}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"><span class="stock-logo-fallback">${fallback}</span>`;
+}
+
+function queueStockLogoLookup(node) {
+  if (!node) return;
+  const key = node.dataset.stockKey;
+  if (!key || stockLogoQueuedKeys.has(key) || stockLogoUrlCache[key] || stockLogoMissCache[key]) return;
+  stockLogoQueuedKeys.add(key);
+  stockLogoLookupQueue.push(key);
+  processStockLogoLookupQueue();
+}
+
+function processStockLogoLookupQueue() {
+  if (stockLogoLookupInFlight || !stockLogoLookupQueue.length) return;
+  const waitMs = Math.max(0, stockLogoLookupIntervalMs - (Date.now() - stockLogoLastLookupAt));
+  clearTimeout(stockLogoLookupTimer);
+  stockLogoLookupTimer = setTimeout(async () => {
+    const key = stockLogoLookupQueue.shift();
+    stockLogoQueuedKeys.delete(key);
+    if (!key) return;
+    const stock = findStockByKey(key);
+    if (!stock) {
+      processStockLogoLookupQueue();
+      return;
+    }
+    stockLogoLookupInFlight = true;
+    try {
+      const logoUrl = await resolveLogoUrlForStock(stock);
+      if (logoUrl) {
+        stockLogoUrlCache[key] = logoUrl;
+        delete stockLogoMissCache[key];
+        saveStockLogoCaches();
+        renderResolvedStockLogo(stockList.querySelector(`.stock-logo[data-stock-key="${key}"]`), logoUrl);
+      } else {
+        stockLogoMissCache[key] = true;
+        delete stockLogoUrlCache[key];
+        saveStockLogoCaches();
+        const node = stockList.querySelector(`.stock-logo[data-stock-key="${key}"]`);
+        if (node) node.dataset.logoState = "missing";
+      }
+    } finally {
+      stockLogoLastLookupAt = Date.now();
+      stockLogoLookupInFlight = false;
+      processStockLogoLookupQueue();
+    }
+  }, waitMs);
+}
+
+function ensureStockLogoObserver() {
+  if (stockLogoObserver || typeof IntersectionObserver !== "function") return;
+  stockLogoObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      stockLogoObserver.unobserve(entry.target);
+      queueStockLogoLookup(entry.target);
+    });
+  }, {
+    root: stockList,
+    rootMargin: "120px 0px",
+    threshold: 0.01
+  });
+}
+
+function hydrateStockLogos() {
+  if (!stockList) return;
+  ensureStockLogoObserver();
+  stockList.querySelectorAll(".stock-logo").forEach((node) => {
+    const key = node.dataset.stockKey;
+    const logoUrl = stockLogoUrlCache[key];
+    if (logoUrl) {
+      renderResolvedStockLogo(node, logoUrl);
+      return;
+    }
+    if (stockLogoMissCache[key]) {
+      node.dataset.logoState = "missing";
+      return;
+    }
+    if (stockLogoObserver) stockLogoObserver.observe(node);
+    else queueStockLogoLookup(node);
+  });
+}
 const usersStorageKey = "dividendRegisteredUsers";
 const dashboardStateKey = "dividendDashboardState";
 const freeTrialDays = 7;
@@ -4687,21 +4945,23 @@ function renderList() {
 
   stockList.innerHTML = filtered.map((stock) => `
     <button class="stock-button ${stock.ticker === selectedTicker ? "active" : ""}" data-ticker="${stock.ticker}">
-      <span class="stock-row">
-        <span class="ticker">${stock.ticker}</span>
-        <span class="signal-price">
-          <span class="price-pill">${formatMoney(stock)}</span>
-          <span class="chip ${stock.signal.toLowerCase()}">${stock.signal}</span>
+      <span class="stock-copy">
+        <span class="stock-row">
+          <span class="ticker">${stock.ticker}</span>
+          <span class="signal-price">
+            <span class="price-pill">${formatMoney(stock)}</span>
+            <span class="chip ${stock.signal.toLowerCase()}">${stock.signal}</span>
+          </span>
         </span>
-      </span>
-      <span class="company">
-        <span>${stock.name}</span>
-        <span class="score-pill">Score ${finalQualityScore(stock)}</span>
-      </span>
-      <span class="meta">
-        <span class="chip">${stock.market}</span>
-        <span class="chip">${stock.category}</span>
-        <span class="chip">${stock.dividendYield}% yield</span>
+        <span class="company">
+          <span>${stock.name}</span>
+          <span class="score-pill">Score ${finalQualityScore(stock)}</span>
+        </span>
+        <span class="meta">
+          <span class="chip">${stock.market}</span>
+          <span class="chip">${stock.category}</span>
+          <span class="chip">${stock.dividendYield}% yield</span>
+        </span>
       </span>
     </button>
   `).join("");
@@ -4943,19 +5203,26 @@ function renderDividendCalendar() {
   `).join("") : '<div class="utility-card"><strong>No calendar events available</strong><span>Dividend, record, payment, and earnings events will appear here for the countries you selected.</span></div>';
 }
 
-function renderPortfolioInputs(stock) {
+function renderPortfolioInputs(stock, options = {}) {
   if (!portfolioShares || !portfolioPrice) return;
+  const force = Boolean(options.force);
+  const key = stockKey(stock);
+  const isEditingThisStock = portfolioDraftKey === key && (portfolioDraftDirty || document.activeElement === portfolioShares || document.activeElement === portfolioPrice);
+  const inputFocused = document.activeElement === portfolioShares || document.activeElement === portfolioPrice;
+  if (!force && isEditingThisStock && inputFocused) return;
   const holding = portfolioHoldings[stockKey(stock)] || {};
   if (portfolioPriceCurrency) {
     portfolioPriceCurrency.textContent = `${currencySymbolFor(stock.currency)} ${stock.currency}`;
   }
+  portfolioDraftKey = key;
   portfolioShares.value = holding.shares || "";
   portfolioPrice.value = holding.averagePrice || "";
+  portfolioDraftDirty = false;
 }
 
 function openPortfolioInterface() {
   if (!portfolioTrackerPane) return;
-  renderPortfolioInputs(selectedStock);
+  renderPortfolioInputs(selectedStock, { force: true });
   topbarQuickPanes.forEach((pane) => {
     if (pane !== portfolioTrackerPane) pane.open = false;
   });
@@ -5870,13 +6137,27 @@ function renderDetail(stock) {
 
   const isaNote = "";
   platforms.innerHTML = `${isaNote}
-    ${stock.platforms.map(([name, note]) => `
-    <div class="platform">
-      <strong>${name}</strong>
+    ${stock.platforms.map(([name, note]) => {
+      const platformUrl = platformWebsiteUrl(name, stock);
+      const cardTag = platformUrl ? "a" : "div";
+      const cardAttrs = platformUrl
+        ? `class="platform platform-card-link" href="${platformUrl}" target="_blank" rel="noreferrer noopener" aria-label="Open ${name}"`
+        : `class="platform"`;
+      const titleHtml = platformUrl
+        ? `<strong class="platform-link">${name}</strong>`
+        : `<strong>${name}</strong>`;
+      const actionHtml = platformUrl
+        ? `<span class="platform-link platform-link-action">Open platform</span>`
+        : "";
+      return `
+    <${cardTag} ${cardAttrs}>
+      ${titleHtml}
       <span class="liquidity-line">${platformLiquidityScore(stock, name)}</span>
       <span>${note}</span>
-    </div>
-  `).join("")}`;
+      ${actionHtml}
+    </${cardTag}>
+  `;
+    }).join("")}`;
 
   renderDividendHistory(stock);
   renderUtilityPanes(stock);
@@ -6069,8 +6350,10 @@ savePortfolio?.addEventListener("click", () => {
   } else {
     portfolioHoldings[key] = { shares, averagePrice };
   }
+  portfolioDraftKey = key;
+  portfolioDraftDirty = false;
   savePortfolioProfile();
-  renderPortfolioInputs(selectedStock);
+  renderPortfolioInputs(selectedStock, { force: true });
   renderPortfolioPane();
 });
 
@@ -6081,21 +6364,41 @@ downloadPortfolio?.addEventListener("click", () => {
 portfolioPane?.addEventListener("click", (event) => {
   const button = event.target.closest(".mini-action");
   if (!button) return;
+  event.preventDefault();
+  event.stopPropagation();
   const key = button.dataset.key;
   const stock = findStockByKey(key);
   if (button.dataset.action === "edit" && stock) {
     selectStock(stock.ticker);
-    renderPortfolioInputs(stock);
+    renderPortfolioInputs(stock, { force: true });
+    openPortfolioInterface();
     return;
   }
   if (button.dataset.action === "delete") {
     delete portfolioHoldings[key];
+    if (portfolioDraftKey === key) {
+      portfolioDraftDirty = false;
+    }
     savePortfolioProfile();
     if (stock && stockKey(selectedStock) === key) {
-      renderPortfolioInputs(selectedStock);
+      renderPortfolioInputs(selectedStock, { force: true });
     }
     renderPortfolioPane();
   }
+});
+
+[portfolioShares, portfolioPrice].forEach((input) => {
+  input?.addEventListener("focus", () => {
+    if (selectedStock) {
+      portfolioDraftKey = stockKey(selectedStock);
+    }
+  });
+  input?.addEventListener("input", () => {
+    if (selectedStock) {
+      portfolioDraftKey = stockKey(selectedStock);
+    }
+    portfolioDraftDirty = true;
+  });
 });
 
 compareSelects.forEach((select, index) => {

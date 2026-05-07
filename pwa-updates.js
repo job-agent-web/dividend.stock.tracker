@@ -1,7 +1,7 @@
 (function initPwaUpdates() {
   if (window.location.protocol === "file:" || !("serviceWorker" in navigator)) return;
 
-  const updateCheckIntervalMs = 5 * 60 * 1000;
+  const updateCheckIntervalMs = 60 * 1000;
   const signatureStorageKey = "dividendInstalledDeploymentSignature";
   const dismissedSignatureStorageKey = "dividendDismissedDeploymentSignature";
   const browserAutoAppliedSignatureKey = "dividendBrowserAutoAppliedSignature";
